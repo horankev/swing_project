@@ -1,0 +1,1491 @@
+---
+title: "Spatially varying explanations behind the swing from Labour to Conservative in England and Wales in the 2019 UK general election"
+author: "Kevin Horan"
+execute: 
+  echo: false
+  warning: false
+  message: false
+  code-fold: false
+  cache: true
+toc: true
+number-sections: true
+format:
+  pdf: default
+editor: source
+bibliography: references.bib
+---
+
+```{r, warning=FALSE, message=FALSE}
+
+packages <- c(
+  "MASS",
+  "tidyverse",
+  "sf",
+  "tmap",
+  "here",
+  "spdep", # areal data
+  "grid",
+  "GWmodel",
+  "kableExtra",
+  "cowplot",
+  "parlitools",
+  "corrplot",
+  "lme4",
+  "mgcv",
+  "ggfortify",
+  "ggforce", # has geom_circle
+  "gridExtra",
+  "car",
+  "rgeoda", # for LISA
+  "ggpubr",
+  "ggrepel",
+  "ggpointdensity",
+  "ggalt", # for geom_encircle
+  "ggsflabel", # has repel labels for sf
+  "viridis",
+  "spatialreg",
+  "rgdal",
+  "rgeos",
+  "randomForest",
+  "broom",
+  "patchwork"
+  )
+
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+options(kableExtra.latex.load_packages = TRUE)
+
+tmap_mode("plot")
+rm(list=ls())
+```
+
+```{r}
+
+# avoid conflict with dplyr and MASS::select
+select <- dplyr::select
+
+set.seed(123)
+```
+
+```{r, warning=FALSE, message=FALSE}
+
+df <- readRDS(here("df_withtext.rds")) |> 
+  mutate(degree_educated = degree,
+         professionals = industry_professional,
+         younger_adults = age_18_to_19 + age_20_to_24 + age_25_to_29 + age_30_to_44,
+         english_speaking = english_all,
+         single_ethnicity_household = 100 - ethnicity_mixed,
+         not_good_health = health_fair + health_bad + health_very_bad,
+         white = ethnicity_white,
+         christian = christian,
+         own_home = house_owned,
+         no_car = cars_none,
+         density = density,
+         region = as.character(region),
+         region = factor(ifelse(county == "Merseyside", "Merseyside", region)),
+         region = factor(region))
+
+hex <- west_hex_map
+df_hex <- df |> 
+  st_drop_geometry() |> 
+  inner_join(hex |> select(-"constituency_name"), #  no letter case confusion
+             by = c("ons_const_id"="gss_code")) |> 
+  st_as_sf()
+
+hex_regions <- df_hex |> 
+  group_by(region) |> 
+  summarise() |> 
+  st_as_sf()
+
+regions <- df |> group_by(region) |> 
+  summarise() |> 
+  st_as_sf()
+
+
+vardf <- data.frame(variable = c("degree_educated",
+               "professionals",
+               "younger_adults",
+               "english_speaking",
+               "single_ethnicity_household",
+               "not_good_health",
+               "white",
+               "christian",
+               "own_home",
+               "no_car"))
+
+var_justification <- data.frame(
+  variable = c("degree_educated",
+               "professionals",
+               "younger_adults",
+               "english_speaking",
+               "single_ethnicity_household",
+               "not_good_health",
+               "white",
+               "christian",
+               "own_home",
+               "no_car"),
+  justification = c(rep("post-industrial / knowledge economy",3),
+                    rep("diversity / values / outcomes",5),
+                    rep("metropolitan / 'big-city'",2)),
+  jcolour = c(rep("navyblue",3),
+                    rep("firebrick4",5),
+                    rep("darkgreen",2))
+)
+
+```
+
+## Abstract
+
+Something like the following: Examine association of a collection of census-based covariates with the swing from the Labour party to the Conservative party in 2019. These effects were not consistent across different regions. Extent to which regionality can explain the difference. Were geographical factors also at play? A division of the map into neighbouring areas with similar correlation structures and model these to gain insight. Etc...
+
+## Introduction
+
+The UK election of 12th December 2019 saw a dramatic change in the electoral landscape of England and Wales. It occurred against the backdrop of the 2016 Brexit referendum. Another snap election had occurred in 2017 which, while favourable to the Conservatives, was seen by many analysts [@prosser2021] as an under-performance and had not given sufficient parliamentary support for the envisioned Brexit process. The 2019 Conservative election campaign, under the leadership of Boris Johnston, was driven by the slogan *'get Brexit done'*, and resulted in a substantial victory and parliamentary majority for the Conservatives, with many of their seat gains occurring in constituencies in which they had never, or at least not recently, performed strongly. Labour received their lowest number of MPs since 1935. Often referred to as *'Red Wall'*, many of these losses to the Conservatives occurred in a collection of constituencies in the North and Midlands [@rycroft2020] which had been traditional Labour strongholds for many decades.
+
+In the aftermath of the 2016 referendum, the 2017 election had seen novel shifts in voting behaviour as many *'Leave'* voters shifted their allegiance to the Conservative party, while many *'Remainers'* moved to Labour. These changes in voter preference became even more widespread in the 2019 election, to the extent that long-held Labour seats were now vulnerable. The situation was exacerbated by a tendency among voters of a very strong *'remain'* persuasion, in certain locations across the country, to instead shift their votes to the Liberal Democrats whose stance on the Brexit issue was more clearly pro-European than that of Labour.
+
+Regression analysis [@kanagasooriam2021] concluded that, in the 2017 election, around 85 per cent of the variation in area-level support for the Conservative Party in England and Wales was explained by constituency demographics. In that same analysis, constituencies which under-rated Conservative performance with negative, or very small positive, residuals turned out to be corrections waiting to happen. They proved to be indicative of Conservative under-performance in that election, and excellent predictors of gains that were to come in the 2019 election.
+
+This study focuses on that subsequent stage of the process. Rather than focussing on explaining the actual Conservative vote in 2019, it examines the shift in votes from the Labour Party to the Conservatives between 2017 and 2019. Using socio-economic data procured from the most recent census, it seeks to identify which variables were important in the observed process of shifting allegiance, and whether the strength and direction of the effects of these covariates varied spatially in different parts of England and Wales.
+
+## Data
+
+The data used for this study comes exclusively from the `parlitools` R package [@parlitools], which includes a number of useful resources for analysing UK politics. This package contains a record of recent election results sourced from the British Election Study, socio-demographic information aggregated to the constituency level from the 2011 census, in addition to hexagonal cartograms representing the Westminster constituencies, all of which form the basis of this analysis. Attention is restricted to the 571 constituencies of England and Wales. While Scotland and Northern Ireland saw interesting dynamics of their own in this election, the Conservatives and Labour were not the two principal competing parties in these parts of the United Kingdom and, as such, modelling of the same swing for these nations would not be comparable with the dynamics of England and Wales.
+
+### Dependent variable
+
+The phenomenon under examination throughout this work is the apparent change in voter preference from the Conservative party to Labour from the 2017 to the 2019 elections. The measure used to represent this process is the Butler swing [@butler1990], which is commonly utilised in popular discourse concerning election results. When speaking of such a swing from Labour to the Conservatives, the Butler swing is calculated as the mean of the difference between the change in Conservative vote between the two elections, and that of Labour, and can be represented as follows: $$
+\textrm{Butler Swing} = \frac{(Con 2019 - Con 2017) - (Lab 2019 - Lab 2017)}{2}
+$$ where $Con2019$ and $Con2017$ represent the percentage of votes which were cast for the Conservative party in 2019 and 2017 respectively, while $Lab2019$ and $Lab2017$ correspond to the equivalent for the Labour party. Unlike the most common alternative, the Steed swing, it is calculated on the basis of total number of votes cast, including those cast for candidates other than Conservative or Labour. For example, an increase of Conservative vote share by 4.9%, combined with a decrease in Labour vote share of 7.9% would lead to a swing from Labour to the Conservatives of $$
+\frac{4.9\% - (-7.9\%)}{2}=6.4\%
+$$
+
+```{r, out.width=450, out.height=350, fig.width=12, fig.height=4}
+#| fig-cap: "Density curve and histogram of Butler swing across 571 constituencies, alongside barchart of number of constituencies with negative swing, by region"
+#| label: fig-swing-density
+
+swing_hist <- ggplot(df, aes(x=con_swing)) + 
+  geom_histogram(aes(y=..density..), colour="black", fill="darkblue", alpha=0.5, binwidth = 1.1) + 
+  geom_density(colour="darkred", lwd=1.5) + 
+  scale_fill_brewer(palette = "Set3") + 
+  geom_vline(xintercept = mean(df$con_swing), colour="orange", lwd=3) + 
+  geom_vline(xintercept = mean(df$con_swing) + sd(df$con_swing), colour="pink", lwd=1.2, linetype="dashed") +
+  geom_vline(xintercept = mean(df$con_swing) - sd(df$con_swing), colour="pink", lwd=1.2, linetype="dashed") +
+  labs(x="Butler swing",
+       subtitle = paste0("Mean = ",round(mean(df$con_swing),2),", standard deviation = ",round(sd(df$con_swing),2))) + 
+  theme_bw()
+
+# ggplot(df, aes(x=con_swing)) + 
+#   geom_histogram(aes(y=..density..,fill=region),colour="black",alpha=0.5, binwidth = 1.1) + 
+#   #geom_density(colour="darkred", lwd=1.2) + 
+#   scale_fill_brewer(palette = "Set3") + 
+#   geom_vline(xintercept = mean(df$con_swing), colour="orange", lwd=1) + 
+#   geom_vline(xintercept = mean(df$con_swing) + sd(df$con_swing), colour="pink", lwd=1.2, linetype="dashed") +
+#   geom_vline(xintercept = mean(df$con_swing) - sd(df$con_swing), colour="pink", lwd=1.2, linetype="dashed") +
+#   labs(x="Butler swing",
+#        subtitle = paste0("Mean = ",round(mean(df$con_swing),2),", standard deviation = ",round(sd(df$con_swing),2))) + 
+#   theme_bw()
+
+reg_count <- df |> 
+  select(constituency_name,region,con_swing) |> 
+  st_drop_geometry() |> 
+  group_by(region) |> 
+  summarise(total=n())
+  
+neg_swing <- df |> 
+  select(constituency_name,region,con_swing) |> 
+  filter(con_swing < 0) |> 
+  st_drop_geometry() |> 
+  group_by(region) |> 
+  summarise(count=n()) |> 
+  left_join(reg_count) |> 
+  mutate(pct = 100*count/total)
+
+neg_plot <- ggplot(neg_swing,aes(y=fct_reorder(region,count,.desc=TRUE),x=count)) + 
+  geom_col(fill="darkred", colour="black") + 
+  scale_x_continuous(breaks=c(0,2,4,6,8,10,12)) + 
+  labs(y="region",
+       subtitle = "Negative swings") + 
+  theme_bw()
+
+swing_hist + neg_plot + plot_layout(widths = c(3,1))
+
+```
+
+As can be seen from the histogram in @fig-swing-density, the vast majority of constituencies saw a positive swing to the Conservatives. Indeed, only 25 of the 571 contests saw a negative swing, almost half of which were in London.
+
+In terms of geographical spread, the first exploratory map in @fig-swing-maps show comparatively high levels of swing occurring in portions of the East Midlands, Yorkshire and The Humber, and the North East. Other areas show low to moderate levels. The regions of England and Wales are shown in the second map. There are ten regions, once Scotland and Northern Ireland have been removed. The study, however, considers 11 divisions, having separated Merseyside from the rest of the North West region into its own quasi-region. This reflects well-established anomalous behaviour among constituencies in Merseyside in terms of Conservative performance. While London is often separated for particular attention in many studies of voting patterns in the UK, it is often deemed more appropriate to give particular emphasis to Merseyside in studies which are concerned primarily with Conservative voting patterns [@kanagasooriam2021].
+
+Also provided, in @fig-swing-maps-hex, are the equivalent maps rendered in hexagonal representation. The range in physical size of UK constituencies is large, with the mean population of each being just below 100,000. The larger constituencies tend to be primarily rural and low density, as opposed to smaller and more dense constituencies in the environs of towns and cities. Furthermore, the Conservatives have a tendency to perform better in the larger rural constituencies while Labour have traditionally dominated in urban areas. For these reasons, traditional maps can be misleading when showing voting patterns in the UK, and a hexagonal map in which each constituency is represented by a hexagon of equal size, can be more visually interpretable. This is particularly relevant in a system of one-seat constituencies such as exists for Westminster parliamentary elections. For this reason, maps are sometimes presented in hexagonal cartogram form during this study.
+
+```{r, fig.width=8, fig.height=4}
+#| label: fig-swing-maps
+#| fig-cap: "Exploratory maps showing constituencies coloured by level of swing, and the ten regions of England and Wales plus Merseyside"
+
+swing_map <- ggplot(df) + 
+  geom_sf(aes(fill=con_swing, colour=con_swing), lwd=0) + 
+  coord_sf(datum=NA) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint=0) + 
+  scale_colour_gradient2(low="darkred",mid="white",high="darkblue",midpoint=0) + 
+  labs(fill="Butler\nSwing") + 
+  guides(colour="none") + 
+  geom_sf(data=regions, lwd=0.1, fill=NA) + 
+  coord_sf(datum=NA) + 
+  theme_bw() 
+
+region_map <- ggplot(regions) + 
+  geom_sf(aes(fill=region), lwd=0.01) + 
+  geom_sf_label_repel(aes(label=region), size=1) + 
+  coord_sf(datum=NA) + 
+  scale_fill_brewer(palette = "Set3") + 
+  theme_bw() + 
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+swing_maps <- ggarrange(swing_map,region_map,
+                        ncol = 2, nrow=1, common.legend = TRUE, legend = "left")
+
+swing_maps
+
+```
+
+```{r, fig.width=8, fig.height=4}
+
+
+# swing_maps
+
+```
+
+```{r, fig.width=6, fig.height=2}
+#| fig-cap: "Exploratory maps with hexagonal expression"
+#| label: fig-swing-maps-hex
+
+swing_hex <- ggplot(df_hex) + 
+  geom_sf(aes(fill=con_swing), lwd=0.1) + 
+  coord_sf(datum=NA) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint=0) + 
+  labs(fill="Butler\nSwing") + 
+  theme_bw()
+
+reg_hex_sum <- df_hex |> 
+  group_by(region) |> 
+  summarise()
+
+region_hex <- ggplot() + 
+  geom_sf(data=df_hex, aes(fill=region), lwd=0.01) + 
+  geom_sf(data=reg_hex_sum, aes(label=region), fill=NA, size=0.1) +
+  geom_sf_label_repel(data=reg_hex_sum, aes(label=region), size=1) + 
+  coord_sf(datum=NA) + 
+  scale_fill_brewer(palette = "Set3") + 
+  theme_bw() + 
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank()) + 
+  guides(fill="none")
+
+swing_maps_hex <- ggarrange(swing_hex,region_hex, 
+                        ncol = 2, nrow=1, common.legend = TRUE, legend = "left")
+
+swing_maps_hex
+
+```
+
+```{r, fig.width=6, fig.height=2}
+
+#swing_maps_hex
+
+```
+
+### Independent variables
+
+In addition to considering *region* in the exploration of processes behind the 2019 swing, ten socio-demographic variables have been selected from the 2011 census, aggregated to the constituency level. These are shown in @tbl-10vars-justif, along with the justification for their selection, broken down into three categories. The choice of these particular variables follows the same logic as that of @beecham2018 in their examination of the 2016 Brexit referendum results. This fits with the view of the realignment of voter preference in the 2019 election as being reflective of voters' desire or otherwise to see the completion of the Brexit process.
+
+```{r}
+#| label: tbl-10vars-justif
+#| tbl-cap: "Explanatory variables and justification category"
+
+kable(var_justification[,1:2]) |>
+  kable_paper(full_width = F) |>
+  row_spec(1:3, color = "NavyBlue") |>
+  row_spec(4:8, color = "Maroon") |>
+  row_spec(9:10, color = "OliveGreen")
+
+```
+
+The media discourse around the Leave vote often focused on post-industrialisation in certain parts of the UK - a phenomenon which can be captured by considering the proportion of degree-educated residents, and residents working in professional occupations. The proportion of younger adults in a population can be seen as a measure of perceived levels of opportunity. These three variables together are categorised as proxies for the notion of a post-industrial or knowledge economy, centred more on services and on up-and-coming industries.
+
+Variables associated with ethnic and cultural diversity can serve a similar purpose, and are also shown in @tbl-10vars-justif. While most are self-explanatory proportions of residents in a constituency meeting the given description, *english_speaking* may need some extra clarification as being the proportion of households which are composed exclusively of residents for whom English is the first language. These variables are coloured red and labelled as being broadly representative of diversity, values or outcomes.
+
+The final category of variables discriminate so-called 'metropolitan' or 'big-city' attributes, another presumed dividing line in the Leave/Remain debate and, presumably, a helpful explanatory category in the context of the 2019 swing. As @beecham2018 point out, the no car household variable might initially appear to be a strange choice. Car ownership has traditionally been used in social research as the proxy for household income. Whilst this may still be true of certain parts of the country, it is also likely to discriminate metropolitan, 'big-city'-type living from those living in satellite towns and more rural areas---a further apparent dividing line of the Leave/Remain vote.
+
+Prior to use, these explanatory variables are scaled such that they exhibit mean of zero and standard deviation of one. This means that units of increase in a variable refer to unit changes in standard deviation which makes inter-comparability of effects more interpretable. Furthermore, the mean of zero allows intercepts in regression models to be viewed as representing the level of a dependent variable with all explanatory variables held at their mean value.
+
+## Global associations of individual covariates
+
+As a first step in this analysis, the associations of each of these independent variables with the Butler swing to the Conservatives is assessed independently of the other covariates, in order to establish a baseline view of the global trends. These are presented in @fig-vars-assoc. A linear fit, not entirely appropriate in some cases, is added for reference purposes, as is the correlation statistic. As throughout this study, the blue, red and green text colours represent the category of variable to which each covariate belongs, as already outlined in @tbl-10vars-justif.
+
+In England and Wales as a whole, *degree_educated*, *not_good_health* and *professionals* are all strongly correlated with swing, and can each claim to explain approxiamtely 60% of the global variance. This is much higher than is the case for any other variables. The direction of their association is as might be expected, with increases in values synonymous with the *knowledge economy* being associated with lower swing to the Conservatives, while increases in levels of poor health, a proxy for poor economic outcomes, are associated with higher levels of swing. To say that this is expected is to assume that the realignment is being driven by the same processes that drove the Brexit vote. In reality, this phenomenon is quite noteworthy given that lower economic outcomes have traditionally been associated with greater success for Labour.
+
+The collection of variables associated with diversity - *english_speaking*, *christian*, and *white* all show moderate positive association with swing at a global scale, while *younger_adults* (from the *knowledge economy* category) shows a similar but less pronounced pattern to that described above.
+
+Finally, there is virtually no global correlation between swing and the two *big-city* variables at this scale.
+
+In terms of regionality, it is apparent that many London constituencies (coloured light-green) display values of covariates which would be at the tails of their global distributions, often lying more than four standard deviations from the global mean. While they may be different in magnitude, further steps are needed to establish whether they display different process patterns in combination with the dependent variable than is the case in other regions.
+
+```{r, fig.width=12, fig.height=12, message=FALSE}
+#| fig-cap: "Scatterplots of Butler swing to Conservatives by candidate explanatory variable, coloured by region, and with size in proportion to population size"
+#| label: fig-vars-assoc
+
+# scale the variables to better judge relative strength of effects
+df_scaled <- df |> 
+  st_drop_geometry() |> 
+  select(degree_educated,
+    professionals,
+    younger_adults,
+    english_speaking,
+    single_ethnicity_household,
+    not_good_health,
+    white,
+    christian,
+    own_home,
+    no_car) |> 
+  scale() |> 
+  as.data.frame() |> 
+  mutate(con_swing=df$con_swing,
+         region=df$region,
+         population=df$population)
+
+cors_df <- data.frame(
+  variable = c(
+    "degree_educated",
+    "professionals",
+    "younger_adults",
+    "english_speaking",
+    "single_ethnicity_household",
+    "not_good_health",
+    "white",
+    "christian",
+    "own_home",
+    "no_car"
+  ),
+  justification = factor(c(rep("post-industrial / knowledge economy",3),
+                    rep("diversity / values / outcomes",5),
+                    rep("metropolitan / 'big-city'",2))), 
+  jcolour = c(rep("navyblue",3),
+                    rep("firebrick4",5),
+                    rep("darkgreen",2)),
+  AIC = c(
+    AIC(lm(con_swing~degree_educated+region, data=df_scaled)),
+    AIC(lm(con_swing~professionals+region, data=df_scaled)),
+    AIC(lm(con_swing~younger_adults+region, data=df_scaled)),
+    AIC(lm(con_swing~english_speaking+region, data=df_scaled)),
+    AIC(lm(con_swing~single_ethnicity_household+region, data=df_scaled)),
+    AIC(lm(con_swing~not_good_health+region, data=df_scaled)),
+    AIC(lm(con_swing~white+region, data=df_scaled)),
+    AIC(lm(con_swing~christian+region, data=df_scaled)),
+    AIC(lm(con_swing~own_home+region, data=df_scaled)),
+    AIC(lm(con_swing~no_car+region, data=df_scaled))
+    ) |> 
+    round(2),
+  corr = c(
+    cor(df_scaled$con_swing, df_scaled$degree_educated),
+    cor(df_scaled$con_swing, df_scaled$professionals),
+    cor(df_scaled$con_swing, df_scaled$younger_adults),
+    cor(df_scaled$con_swing, df_scaled$english_speaking),
+    cor(df_scaled$con_swing, df_scaled$single_ethnicity_household),
+    cor(df_scaled$con_swing, df_scaled$not_good_health),
+    cor(df_scaled$con_swing, df_scaled$white),
+    cor(df_scaled$con_swing, df_scaled$christian),
+    cor(df_scaled$con_swing, df_scaled$own_home),
+    cor(df_scaled$con_swing, df_scaled$no_car)
+  ) |>
+    round(2)
+) |> arrange(desc(abs(corr)))
+
+# scaled df with geometry for mapping  
+df_scaled_sf <- df_scaled |> 
+  mutate(geometry = df$geometry) |> 
+  st_as_sf()
+
+plot_list1 <- list()
+i=1
+for (var in cors_df$variable){
+   
+  plot_list1[[i]] <-  ggplot(df_scaled) + 
+    geom_point(aes_string(x=var, y="con_swing", fill="region", size="population"), shape=21) + 
+    geom_smooth(aes_string(x=var, y="con_swing"), colour="black", lwd=2, method = "lm", se = TRUE) +
+    labs(title = cors_df$variable[i],
+         subtitle = paste0("Correlation: ",cors_df[i,5],"\n",cors_df[i,2])) + 
+    scale_fill_brewer(palette = "Paired") + 
+    scale_size_continuous(range = c(0.5,4)) + 
+    guides(size="none") +
+    theme_bw() + 
+    theme(plot.subtitle = element_text(colour=cors_df[i,3])) + 
+    theme(plot.subtitle = element_text(size=10)) + 
+    guides(fill = guide_legend(nrow=2)) + 
+    guides(fill = guide_legend(override.aes = list(size = 4)))
+  i = i+1
+}
+
+cor_plots1 <- ggarrange(plot_list1[[1]],plot_list1[[2]],plot_list1[[3]],plot_list1[[4]],plot_list1[[5]],
+                       plot_list1[[6]],plot_list1[[7]],plot_list1[[8]],plot_list1[[9]],plot_list1[[10]],
+                       nrow = 3, ncol = 4, common.legend = TRUE, legend = "bottom")
+
+title <- expression("Annotated with global correlation and category of variable")
+annotate_figure(cor_plots1,
+                top=text_grob(title))
+
+```
+
+```{r, fig.width=12, fig.height=12, message=FALSE}
+
+# title <- expression("Annotated with global correlation and category of variable")
+# annotate_figure(cor_plots1,
+#                 top=text_grob(title))
+
+```
+
+### Random intercepts: Spatial dependence
+
+Having established the presence of broad global associations, the next step is to check for the presence of spatial dependence, a situation where values observed at one location or, in this case, within one region depend on the values of other observations in the same region [@lesage2009a]. A common approach to treating geographic dependence in the values of variables is to model geographic context as a fixed effect. However, given the fact that our data are hierarchically structured (constituencies sit within regions), hierarchical multi-level modelling may be more appropriate to modelling this sort of regional grouping. Multi-level modelling uses partial pooling to make estimated coefficients more conservative than is the case with standard fixed effect models in cases where there are comparatively few observations in particular groupings. Accordingly, a mixed model is constructed for each variable's individual relationship with Butler swing, allowing intercept to vary by region. The results are shown in @fig-vary-int.
+
+Pseudo-$R^2$ scores for both the marginal and conditional situations are shown. The marginal $R^2$ shows the proportion of variance explained by the fixed (non-regional) factors alone, while the conditional $R^2$ represents the proportion of variance explained by both the fixed and random (varying intercept) factors. All ten covariates exhibit a large increase in conditional $R^2$ relative to marginal, which shows, as might be expected, that spatial dependence is present, and allowing for random intercepts is useful in explaining swing. These plots also reveal this dependence through the different size of intercept value estimated for each region. It is clear that London, Merseyside, the South East and the South West have the lowest scores of swing for any given level all covariates, while the North East is highest, closely followed by Yorkshire and the Humber, and the West and East Midlands.
+
+```{r, fig.width=12,fig.height=12}
+#| fig-cap: "Varying intercept models fit separately for each explanatory variable"
+#| label: fig-vary-int
+
+library(MuMIn) # for extracting pseudo r2
+
+fitlistvi <- list()
+for (i in 1:10){
+  formula    <- as.formula(paste("con_swing ~", vardf$variable[i],"+(1|region)"))
+  fitlistvi[[i]] <- lmer(formula, data = df_scaled)
+}
+
+rglistvi <- list()
+for (i in 1:10){
+  rglistvi[[i]] <- fitted(fitlistvi[[i]])
+  
+}
+
+res_listvi <- list()
+for(i in 1:10){
+  res_listvi$fitted[[i]] <- rglistvi[[i]]
+  res_listvi$var[[i]] <- df_scaled[,i]
+}
+
+pl_listvi <- list()
+for (i in 1:10){
+  df_scaled_temp <- df_scaled
+  df_scaled_temp$fit <- res_listvi$fitted[[i]]
+  df_scaled_temp$var <- res_listvi$var[[i]]
+  pl_listvi[[i]] <- ggplot(df_scaled_temp) + 
+    geom_point(aes(x=var,y=con_swing, colour=region),alpha=0.1) + 
+    geom_line(aes(x=var,y=fit,group=region,colour=region),lwd=1.5) +
+    labs(x="z-score", 
+         title = cors_df$variable[i],
+         subtitle = paste0("pseudo-R2:\nmarginal: ",round(r.squaredGLMM(fitlistvi[[i]])[1],2),"\n",
+                           "conditional: ",round(r.squaredGLMM(fitlistvi[[i]])[2],2),"\n",
+                           cors_df[i,2])) + 
+    scale_colour_brewer(palette = "Paired") + 
+    scale_size_continuous(range = c(0.5,4)) + 
+    guides(size="none") +
+    theme_bw() + 
+    theme(plot.subtitle = element_text(colour=cors_df[i,3])) + 
+    theme(plot.subtitle = element_text(size=10))
+}
+
+
+vi_plots <- ggarrange(pl_listvi[[1]],pl_listvi[[2]],pl_listvi[[3]],pl_listvi[[4]],pl_listvi[[5]],
+                       pl_listvi[[6]],pl_listvi[[7]],pl_listvi[[8]],pl_listvi[[9]],pl_listvi[[10]],
+                       nrow = 3, ncol = 4, common.legend = TRUE, legend = "bottom")
+
+vi_plots
+
+```
+
+```{r, fig.width=12, fig.height=12, message=FALSE}
+
+# vi_plots
+
+```
+
+### Random slopes: Spatial heterogeneity
+
+The next issue to be addressed is spatial heterogeneity, which "points to the lack of spatial stability of the relationships under study (functional forms and parameters vary with location and are not homogeneous throughout the data set)" [@brunsdon2002]. In the context of linear modelling, this can be demonstrated by allowing random slopes in addition to random intercepts in a mixed model. The results of such a model are shown in @fig-vary-slope.
+
+```{r, fig.width=12,fig.height=12}
+#| fig-cap: "Varying slope models fit separately for each explanatory variable"
+#| label: fig-vary-slope
+
+library(MuMIn)
+
+fitlistvs <- list()
+for (i in 1:10){
+  formula    <- as.formula(paste("con_swing ~", vardf$variable[i],"+1+(",vardf$variable[i],"|region)"))
+  fitlistvs[[i]] <- lmer(formula, data = df_scaled)
+}
+
+rglistvs <- list()
+for (i in 1:10){
+  rglistvs[[i]] <- fitted(fitlistvs[[i]])
+  
+}
+
+res_listvs <- list()
+for(i in 1:10){
+  res_listvs$fitted[[i]] <- rglistvs[[i]]
+  res_listvs$var[[i]] <- df_scaled[,i]
+}
+
+pl_listvs <- list()
+for (i in 1:10){
+  liketest <- anova(fitlistvi[[i]],fitlistvs[[i]])$`Pr(>Chisq)`[2] |> 
+    round(2)
+  extract_corr <- as.data.frame(VarCorr(fitlistvs[[i]]))$sdcor[3] |> 
+    round(2)
+  df_scaled_temp <- df_scaled
+  df_scaled_temp$fit <- res_listvs$fitted[[i]]
+  df_scaled_temp$var <- res_listvs$var[[i]]
+  pl_listvs[[i]] <- ggplot(df_scaled_temp) + 
+    geom_point(aes(x=var,y=con_swing, colour=region),alpha=0.1) + 
+    geom_line(aes(x=var,y=fit,group=region,colour=region),lwd=1.5) +
+    labs(x="z-score", 
+         title = cors_df$variable[i],
+         subtitle = paste0("pseudo-R2:\nmarginal: ",round(r.squaredGLMM(fitlistvs[[i]])[1],2),"\n",
+                           "conditional: ",round(r.squaredGLMM(fitlistvs[[i]])[2],2),"\n",
+                           "like/ratio pval: ",liketest,"\n",
+                           "corr: ", extract_corr,"\n",
+                           cors_df[i,2])) + 
+    scale_colour_brewer(palette = "Paired") + 
+    scale_size_continuous(range = c(0.5,4)) + 
+    guides(size="none") +
+    theme_bw() + 
+    theme(plot.subtitle = element_text(colour=cors_df[i,3])) + 
+    theme(plot.subtitle = element_text(size=10))
+}
+
+
+vsplots <- ggarrange(pl_listvs[[1]],pl_listvs[[2]],pl_listvs[[3]],pl_listvs[[4]],pl_listvs[[5]],
+                       pl_listvs[[6]],pl_listvs[[7]],pl_listvs[[8]],pl_listvs[[9]],pl_listvs[[10]],
+                       nrow = 3, ncol = 4, common.legend = TRUE, legend = "bottom")
+
+vsplots
+
+```
+
+```{r, fig.width=12, fig.height=12, message=FALSE}
+
+# vsplots
+
+```
+
+In these plots, marginal and conditional $R^2$ are as previously defined, and show a similar pattern to @fig-vary-int. Furthermore, the p-values associated with a likelihood-ratio test between the fixed slope and varying slope models are shown. These suggest that for the *professionals* and *own_home* covariates in particular, but also for *english_speaking* and *no_car*, the random slopes model is no better than the fixed slopes version. This lack of spatial heterogeneity in these covariates with respect to swing (at least in an individual context) is noted for future variable selection.
+
+The other six covariates show a clear improvement in allowing for random slopes. The model estimates a range of different slopes in different regions for the covariates *degree_educated*, *not-good_health*, and *younger_adults*. More interestingly, the variables *single_ethnicity_household*, *christian* and *white* show a change not only in the magnitude, but also in the direction of slope according to region. These three variables all fall under the justification heading of *diversity, values, outcomes*. Merseyside and London behave in this manner for *christian* and *white*, while the East Midlands also shows a similar pattern for *single_ethnicity_household*.
+
+## Region models
+
+Having established the presence of both spatial dependence and heterogeneity in most of these covariates in terms of interaction with Butler swing, the next stage is to see if this persists when examining the whole process, that is the effects on swing of changes in individual covariates while keeping levels of all the others at their mean value.
+
+### Multivariate (x10) global model (all England & Wales)
+
+First a multivariate global model is fit, with all ten covariates. The resultant coefficients are shown in @fig-10var-coef.
+
+```{r, fig.width=12, fig.height=4}
+#| fig-cap: "Output from multivariate model"
+#| label: fig-10var-coef
+
+reg1 <- lm(con_swing ~ degree_educated + 
+          professionals + 
+          younger_adults + 
+          english_speaking + 
+          single_ethnicity_household + 
+          not_good_health + 
+          white + 
+          christian + 
+          own_home + 
+          no_car, df_scaled)
+#summary(reg1)
+
+tidy1 <- tidy(reg1)[-1,] |> 
+  inner_join(var_justification, by=c("term"="variable")) |> 
+  mutate(term = fct_reorder(term, estimate, .desc=TRUE))
+
+glance1 <- glance(reg1)
+
+ggplot(tidy1, aes(x=estimate, y=term,
+                 xmin=estimate - qnorm(0.975)*std.error,
+                 xmax=estimate + qnorm(0.975)*std.error,
+                 colour=jcolour)) + 
+  scale_colour_identity() + 
+  geom_errorbar(lwd=1.5) + 
+  geom_point(colour="black", fill="white", shape=21, size=3) + 
+  geom_vline(xintercept = 0, colour="red") + 
+  theme_bw() + 
+  labs(x="coefficient effect", 
+       y=NULL, 
+       subtitle = paste0("Butler swing to Conservatives by 10 demographic composition variables. \nAdjusted R^2: ",
+                         round(glance1$adj.r.squared,2)))
+
+```
+
+```{r}
+#| tbl-cap: "Variance inflation factor for 10 variable model, >=8 considered problematic"
+#| label: tbl-10vif
+
+vif_reg1 <- car::vif(reg1) |> 
+  as.data.frame() |> 
+  rownames_to_column(var="Variable") |> 
+  rename("Variance Inflation Factor" = `car::vif(reg1)`) |> 
+  mutate(`Variance Inflation Factor` = round(`Variance Inflation Factor`,3))
+
+kable(vif_reg1) |> 
+  kable_paper(full_width=F) |> 
+  column_spec(2, color = ifelse(vif_reg1$`Variance Inflation Factor` > 8, "RedOrange", "black")) |> 
+  column_spec(1, color = case_when(vif_reg1$Variable == "own_home" ~ "OliveGreen",
+                                   vif_reg1$Variable == "no_car" ~ "OliveGreen",
+                                   vif_reg1$Variable == "degree_educated" ~ "NavyBlue",
+                                   vif_reg1$Variable == "professionals" ~ "NavyBlue",
+                                   vif_reg1$Variable == "younger_adults" ~ "NavyBlue",
+                                   TRUE ~ "Maroon"))
+
+```
+
+These coefficients show some problematic features. For example, *degree_educated* and *professionals* are showing wildly different values with the former being large and negative while the latter is positive, contrary to what is suggested by the individual variable models. Calculating the variance inflation factors (@tbl-10vif) for the covariates in this model shows significant levels of collinearity, which violate the assumptions of linear regression and disrupt the magnitude of coefficients and their standard errors. Clearly it is very difficult for a model to measure the effect of *degree_educated* while controlling for *professionals* when the two covariates are so highly correlated.
+
+### Reduced Multivariate (x5) models
+
+Attempts were made to reduce the number of variables in the model while still maintaining a representative sample from each justification category. The coefficients from such a reduced model containing this selection of five covariates which do not show problematic collinearity (@tbl-5vif) are shown in @fig-5var-coef.
+
+This plot shows the global relationship across all of England and Wales between swing to Conservatives and five independent variables. The general pattern is of higher proportions of *degree_educated* in the population being associated with lower levels of swing to the Conservatives, holding all other covariates constant, while higher levels of *younger_adults* and *not-good_health* are associated with higher swing. In order to discover whether or not this effect is consistent across different regions of the study area, these variables are now used in a mixed model with, as before, varying slope and intercept.
+
+```{r}
+#| tbl-cap: "Variance inflation factor for 5 variable model"
+#| label: tbl-5vif
+
+reg2 <- lm(con_swing ~ degree_educated + 
+             younger_adults + 
+             not_good_health + 
+             white + 
+             no_car, df_scaled)
+
+vif_reg2 <- car::vif(reg2) |> 
+  as.data.frame() |> 
+  rownames_to_column(var="Variable") |> 
+  rename("Variance Inflation Factor" = `car::vif(reg2)`) |> 
+  mutate(`Variance Inflation Factor` = round(`Variance Inflation Factor`,3))
+
+kable(vif_reg2) |> 
+  kable_paper(full_width=F) |> 
+  column_spec(2, color = ifelse(vif_reg2$`Variance Inflation Factor` > 8, "RedOrange", "black")) |> 
+  column_spec(1, color = case_when(vif_reg2$Variable == "no_car" ~ "OliveGreen",
+                                   vif_reg2$Variable == "not_good_health" ~ "Maroon",
+                                   vif_reg2$Variable == "white" ~ "Maroon",
+                                   TRUE ~ "NavyBlue"))
+
+```
+
+```{r, fig.width=12, fig.height=4}
+#| fig-cap: "Output from reduced multivariate model"
+#| label: fig-5var-coef
+
+#summary(reg2)
+#car::vif(reg2)
+
+tidy2 <- tidy(reg2)[-1,] |> 
+  inner_join(var_justification, by=c("term"="variable")) |> 
+  mutate(term = fct_reorder(term, estimate, .desc=TRUE))
+
+glance2 <- glance(reg2)
+
+ggplot(tidy2, aes(x=estimate, y=term,
+                 xmin=estimate - qnorm(0.975)*std.error,
+                 xmax=estimate + qnorm(0.975)*std.error,
+                 colour=jcolour)) + 
+  scale_colour_identity() + 
+  geom_errorbar(lwd=1.5) + 
+  geom_point(colour="black", fill="white", shape=21, size=3) + 
+  geom_vline(xintercept = 0, colour="red") + 
+  theme_bw() + 
+  labs(x="coefficient effect", 
+       y=NULL,
+       subtitle = paste0("Butler swing to Conservatives by 5 demographic composition variables. \nAdjusted R^2: ",
+                         round(glance2$adj.r.squared,2),
+                         ", AIC: ",round(AIC(reg2),2)))
+
+```
+
+## Region mixed models (with correlated effects0)
+
+### Structured component
+
+The results of a hierarchical model by region regressing Butler swing on the five selected covariates are now considered. In @fig-mm-fixed, the coefficients for the systematic part of the model are shown. These fixed effects are similar to the global model to the extent that *degree_educated* has a negative association, in contrast to positive values for *not_good_health* and *younger_adults*, while *white* remain insignificant. In contrast with the global situation, the coefficient for *no_car* is now significantly negative.
+
+```{r, fig.width=12, fig.height=4}
+#| fig-cap: "Fixed effects from mixed model"
+#| label: fig-mm-fixed
+
+mm2.1 <- lmer(con_swing ~
+              degree_educated +
+              younger_adults +
+              not_good_health +
+              white +
+              no_car +
+              (1+degree_educated+younger_adults+not_good_health+white+no_car|region), 
+            df_scaled)
+
+#summary(mm2.1)
+
+# for ICC
+vars <- lapply(summary(mm2.1)$varcor, diag)
+resid_var <- attr(summary(mm2.1)$varcor, "sc")^2
+total_var <- sum(sapply(vars, sum), resid_var)
+
+# ICC # with random slopes
+icc_mm2.1 <- sapply(vars, sum)/total_var
+
+
+mm2.1_fix <- broom.mixed::tidy(mm2.1, effects="fixed", conf.int=TRUE, conf.method = "profile") |> 
+  mutate(term = fct_reorder(term, estimate))
+mm2.1_rand <- broom.mixed::tidy(mm2.1, effects="ran_vals", conf.int=TRUE)|> 
+  mutate(term = fct_reorder(term, estimate))
+
+#like_rat_pval <- as.data.frame(anova(mm2.2,mm2.1))[2,8]
+
+ggplot(mm2.1_fix, aes(x=estimate, y=term,
+                 xmin=conf.low,
+                 xmax=conf.high,
+                 fill=estimate)) + 
+  geom_errorbar(lwd=1.5) + 
+  geom_point(colour="black", shape=21, size=3) + 
+    scale_fill_gradient2(low="blue",mid="white",high="red",midpoint = 0) + 
+  geom_vline(xintercept = 0, colour="red") + 
+  theme_bw() + 
+  guides(fill="none") + 
+  # labs(x="coefficient effect",
+  #      y=NULL,
+  #      title = "Fixed effects from mixed model",
+  #      subtitle = paste0(
+  #        "Butler swing to Conservatives by 5 demographic composition variables. \nAIC: ",
+  #        round(AIC(mm2.1),2),
+  #        ", ICC: ",
+  #        round(icc_mm2.1,2),"\nlike/ratio to uncorrelated model pval: ",round(like_rat_pval,3))
+  #      )
+labs(x="coefficient effect",
+       y=NULL,
+       subtitle = paste0(
+         "Butler swing to Conservatives by 5 demographic composition variables. \nAIC: ",
+         round(AIC(mm2.1),2),
+         ", ICC: ",round(icc_mm2.1,2))
+       )
+
+# confint_boot_mm2 <- confint(mm2, method="boot", oldNames=F)
+# kbl(confint_boot_mm2)
+#
+# REsim(mm2)
+# FEsim(mm2)
+
+```
+
+### Random component
+
+Moving to the random component, this hierarchical model is, as expected considering the established spatial heterogeneity, an improvement on the global linear model with the Akaike Information Criterion (AIC) reducing from 2679.88 to 2490.91. In terms of the contribution being made by the random effects of regions to the explanation of variance in Conservative swing, the intraclass correlation coefficient (ICC) shows that this grouping explains 63% of the variance.
+
+Examining the random coefficient estimates, some clear differences between the processes in different regions become apparent. These can be visualised in @fig-mm-random, where the coefficient plot for each region is arranged in a position roughly equivalent to its relative geographic location for ease of comprehension.
+
+```{r, fig.width=10,fig.height=8}
+#| fig-cap: "Random effects from mixed model"
+#| label: fig-mm-random
+
+mm_plot_list2 <- list()
+i=1
+for (var in levels(df_scaled$region)){
+  mmtemp <- mm2.1_rand[mm2.1_rand$level==levels(df_scaled$region)[i],]
+  mm_plot_list2[[i]] <- ggplot(mmtemp, aes(x=estimate, y=term,
+                                                        xmin=conf.low,
+                                                        xmax=conf.high, 
+                                                        fill=estimate)) + 
+    geom_errorbar(lwd=0.5, colour="black") + 
+    geom_point(shape=21, size=3) + 
+    scale_fill_gradient2(low="blue",mid="white",high="red",midpoint = 0) + 
+    geom_vline(xintercept = 0, colour="red") + 
+    theme_bw() + 
+    theme(plot.title =element_text(size=10, face='bold'),
+          plot.subtitle =element_text(size=8)) + 
+    labs(x="coefficient effect", 
+         y=NULL, 
+         title = levels(df_scaled$region)[i]) + 
+    guides(fill="none")
+  
+  i= i+1
+}
+
+(plot_spacer()|plot_spacer()|mm_plot_list2[[5]]|plot_spacer()) / 
+  (plot_spacer()|mm_plot_list2[[4]]|mm_plot_list2[[6]]|mm_plot_list2[[11]]|plot_spacer()) / 
+  (mm_plot_list2[[9]]|mm_plot_list2[[10]]|mm_plot_list2[[2]]|mm_plot_list2[[1]]) /
+  (plot_spacer()|mm_plot_list2[[8]]|mm_plot_list2[[3]]|mm_plot_list2[[7]]) +
+  plot_annotation(
+    subtitle = "5 variables, by region",
+    theme = theme(plot.title = element_text(size = 16))
+  )
+
+```
+
+When referring to these random effects as being significant, this refers to the additive effect they either have or do not have on the value of the fixed coefficient estimates mentioned above. Firstly, *white* is a significant predictor across the North of England in general, an area which saw with some of the highest positive swings to the Conservative party. The association is positive for both the North West and, to a particularly high level, for Yorkshire and the Humber. By contrast, despite being situated within the official North West region, Merseyside shows a negative association with this covariate. This direction is also the case in the East Midlands and London.
+
+The other variable in the same category of *diversity, values, outcome* as *white* is *not_good_health*. This is found to be significant in a positive sense only in the West and East Midlands. The effect is reversed for London and the South East.
+
+Moving next to *degree_educated* and *younger_adults* which fall under the heading of *post-industrial*, or *knowledge economy*, these also are identified as either positive or negative effects depending on their location. *degree_educated* does not show a significant effect in the Northern regions. It is significantly negative in the West Midlands (the only such region), but positive in London and the East. On the other hand, *younger_adults* is significant in a number of regions, from the North East and Yorkshire and the Humber, to the West and East Midlands. Only in London and in Merseyside does it show a negative effect. This is not the first or only time that similar effects in London and Merseyside have been identified.
+
+The other variable in this model is *no_car*, which comes under the heading of *metropolitan* or *'big-city'*. This is only found to be significant in London (positively), and in the West and East Midlands (negatively). In the Midlands, constituencies with lower car ownership thus tend to swing to the Conservatives to a higher degree than the average across the country. The interpretation of *car_ownership* can lead to different conclusions in different contexts. The Midlands are regions which combine large urban conglomerations with significant rural populations. Assuming that car ownership is more of a necessity in a rural environment, we can interpret this coefficient as suggesting that rural areas in the Midlands were more likely to swing to the Conservatives than were their urban counterparts.
+
+By contrast, all of London is highly urbanised, and car ownership levels within a constituency could lead to different conclusions. Use and upkeep of a car in an environment such as London can be expensive, not least due to parking and toll contraints. This may suggest that constituencies in London with higher levels of income were more inclined to swing to the Conservatives than others.
+
+### Spatial component
+
+Some of the spatial autocorrelation has been accounted for by the hierarchical structure of the model. However, some remains (see @fig-moran-plot-region), but much less than would be the case with a simple global model which, not being divided into regions with expected similarity, would violate assumptions of a model by showing a large degree of residual auto-correlation.
+
+```{r, fig.width=10,fig.height=8}
+
+# (plot_spacer()|plot_spacer()|mm_plot_list2[[5]]|plot_spacer()) / 
+#   (plot_spacer()|mm_plot_list2[[4]]|mm_plot_list2[[6]]|mm_plot_list2[[11]]|plot_spacer()) / 
+#   (mm_plot_list2[[9]]|mm_plot_list2[[10]]|mm_plot_list2[[2]]|mm_plot_list2[[1]]) /
+#   (plot_spacer()|mm_plot_list2[[8]]|mm_plot_list2[[3]]|mm_plot_list2[[7]]) +
+#   plot_annotation(
+#     subtitle = "5 variables, by region",
+#     theme = theme(plot.title = element_text(size = 16))
+#   )
+
+```
+
+```{r, fig.width=12, fig.height=6}
+#| fig-cap: "Moran's scatterplot for residuals of mixed model, with fills by region for high leverage constituencies"
+#| label: fig-moran-plot-region
+
+temp_mm2.1 <- df |> 
+  select(con_swing,constituency_name,constituency_name) |> 
+  mutate(resids = resid(mm2.1))
+
+df_nb <- poly2nb(df)
+df_wts <- nb2listw(df_nb, zero.policy = TRUE)
+
+mp <- moran.plot(temp_mm2.1$resids, df_wts, zero.policy = TRUE, labels = temp_mm2.1$constituency_name, plot=FALSE) |> 
+  mutate(region=df$region)
+
+temp_reg <- lm(wx~x,mp)
+
+xname <- attr(mp, "xname")
+ggplot(mp, aes(x=x, y=wx)) + geom_point(shape=1) + 
+  geom_smooth(formula=y ~ x, method="lm") + 
+  geom_hline(yintercept=mean(mp$wx), lty=2) + 
+  geom_vline(xintercept=mean(mp$x), lty=2) + theme_minimal() + 
+  geom_point(data=mp[mp$is_inf,], aes(x=x, y=wx), shape=9) +
+  geom_label(data=mp[mp$is_inf,], aes(x=x, y=wx, label=labels, fill=region), size=2.5) +
+  guides(fill = guide_legend(
+    title = "region",
+    override.aes = aes(label = ""))) +
+  xlab("Residuals") + 
+  ylab(paste0("Spatially lagged Residuals")) +
+  scale_fill_brewer(palette = "Set3") + 
+  labs(subtitle = paste0("Slope = ",round(temp_reg$coefficients[2],2))) + 
+  theme(legend.position = "bottom")
+
+```
+
+
+When the residuals are further examined using the R package `mgcv` [@mgcv], a Markov random field structure can be used to identify a smoothed pattern which is related to a queen neighbourhood structure. This is more suitable than distance based neighbourhood structures in a geographical context such as this one because some rural constituencies are very large, while urban constituencies tend to be much smaller, thus rendering distance-based measures inconsistent. Furthermore, the shape of the island of Great Britain means there are places where a short distance might not be reflective of closely related areal units. An example of such a phenomenon is the relatively short distances in the area surrounding the Bristol Channel, which separates Somerset and North Devon from the very contrasting towns of South Wales. These would not be considered neighbours or closely-related under a contiguity neighbourhood structure.
+
+This smoothed pattern (see @fig-mm-geog-effect) shows an additional geographical effect which is not captured by the census data variables. It may reflect historical voting traditions, local constituency issues, personalities whose presence is not relevant in other contexts, or any other conceivable factor which can be associated with a physical location in space, relative to a specific group of neighbours.
+
+The signal from the relatively extreme values found for constituencies with, in some cases, only one neighbour (as can be seen on the South West tip of Cornwall, Anglesey island in the North West of Wales, the Isle of Wight, and even the northernmost constituency in England) may be an artefact of the neighbourhood structure and can be somewhat explained away on account of this peculiarity. However, even excluding these areas, there are clear stretches such as on the border of the East Midlands and Yorkshire and the Humber, and around the Thames estuary region, where there is an extra explanatory dynamic, not accounted for in the census variables, which is geographically consistent with the local neighbourhood structure, and leads to higher levels of Conservative swing than proposed by the five chosen covariates. This may also occur as a result of the location of these areas of relatively extreme levels of swing occurring where regional boundaries are straddled, thus diluting the potential for the hierarchical model to fully capture them. Similarly, there are regions where the smoothed geographic effect is to reduce the expected level of swing, holding other covariates constant. However, the magnitude of these effects is not so large.
+
+```{r, fig.width=4, fig.height=4}
+#| fig-cap: "Residuals from mixed model"
+#| label: fig-mm-resids
+  
+# df_moran <- moran.test(temp_mm2.1$resids, df_wts, zero.policy = TRUE)
+# 
+# ggplot(temp_mm2.1) + 
+#   geom_sf(aes(fill=resids), lwd=0.05) + 
+#   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint=0) + 
+#   theme_bw() + 
+#   labs(subtitle = paste0("Moran's-I H0 of randomness: \np-value: ",round(df_moran$p.value,5))) + 
+#   coord_sf(datum=NA) + 
+#   geom_sf(data=regions, fill=NA) + 
+#   coord_sf(datum=NA) + 
+#   guides(colour="none") + 
+#   labs(fill="Residuals") +
+#   theme_bw()
+
+```
+
+
+```{r}
+
+df_scaled_sf <- df_scaled |> 
+  mutate(constituency_name = df$constituency_name, 
+         resids = resid(mm2.1),
+         geometry = df$geometry) |> 
+  st_as_sf()
+
+df_scaled_sf |> st_intersects() |> 
+  map_int(~length(.x)) %>% {
+    which(. == 1)} -> temp
+bufs <- rep(0,nrow(df_scaled_sf))
+bufs[temp] <- 2000 # just enough to give Isle of Wight neighbours
+nlistconst <- df_scaled_sf |> st_buffer(dist=bufs) |> 
+  st_intersects() |> imap(~setdiff(.x,.y))
+names(nlistconst) <- df_scaled_sf$constituency_name
+
+resid_mod <- gam(resids ~
+               s(constituency_name,bs='mrf',xt=list(nb=nlistconst),k=285), 
+             data=df_scaled_sf, method="REML")
+
+#summary(resid_mod)
+
+df_scaled_sf <- df_scaled_sf |> 
+  mutate(fitted_resids = resid_mod$fitted.values)
+
+```
+
+```{r, fig.width=4, fig.height=4}
+#| fig-cap: "Neighbourhood Effect in residuals from mixed model"
+#| label: fig-mm-geog-effect
+
+ggplot(df_scaled_sf) + geom_sf(aes(fill=fitted_resids, colour=fitted_resids), lwd=0.1) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
+  scale_colour_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
+  coord_sf(datum=NA) + 
+  geom_sf(data=regions, fill=NA) + 
+  coord_sf(datum=NA) + 
+  guides(colour="none") + 
+  labs(fill="effect") +
+  theme_bw()
+
+
+```
+
+## ...HAVE ONLY WRITTEN AS FAR AS HERE...
+## Geographically-weighted spatial component
+
+So far, the division of 'region' has been taken as an appropriate division of the country for the purposes of identifying characteristic local behaviour. However, as can be seen both from the Butler swing map (@fig-swing-maps) and also the geographic effect (@fig-mm-geog-effect), noticeable patterns often straddle regional boundaries, such as:
+
+-   between Yorkshire and The Humber and the East Midlands,
+
+-   between the East and West Midlands,
+
+-   between the East and South East.
+
+Furthermore, regions often display noticeable sub-patterns such as in north and south Wales, or many of the straddling regions mentioned above. There are also clear divisions between the small urban areas and the larger rural areas within regions. It is expected that this effect is accounted for in the socio-economic variables.
+
+To attempt to capture the processes is a more spatially-explicit manner, geographically-weighted summary statistics are examined, particularly local correlations. Explain how this is done.
+
+Geographically-weighted (GW) statistics provides a mechanism for exploring the extent to which values and associations vary continuously over space (Brunsdon, Fortheringham, and Charlton 2002). This involves generating local statistics, and in the case of Geographically Weighted Regression (GWR) local regression coefficients, for each spatial unit. If applied to our dataset, separate regression coefficients for each constituency are estimated that take into account observed values for Butler swing and the demographic variables in nearby constituencies. GW-statistics enables spatial non-stationarity in process to be flexibly explored and characterised.
+
+Certain subtle patterns are visible in these maps (@fig-gw-maps) as the correlations with Butler swing change in a smoothed manner, Sometimes they cross from negative to positive, or at other times from medium or low to high strength.
+
+Four clusters plus Merseyside are extracted using this information with the k-means algorithm. These are shown in @fig-clust-map.
+
+Prior to modelling, it is possible to identify different patterns in the peaks of correlation in @fig-gw-densities across the five variables with which we are dealing.
+
+```{r, fig.width=6, fig.height=6, include=FALSE}
+
+# using GWModel
+
+df.spdf <- df_scaled |> 
+  select(-region) |> 
+  mutate(geometry = df$geometry) |> 
+  st_as_sf() |> 
+  st_set_crs("WGS84") |> 
+  mutate(centroid = st_centroid(geometry)) |>
+  st_drop_geometry() |>
+  st_as_sf() |>
+  as_Spatial()
+
+localstats1 <- gwss(df.spdf,
+                    vars=c("con_swing", "degree_educated", "professionals", "younger_adults", "english_speaking", 
+          "single_ethnicity_household", "not_good_health", "white", "christian", "own_home", 
+          "no_car"),
+                    kernel = "boxcar", adaptive = TRUE, bw = 200, quantile = TRUE)
+
+gw_corr <- localstats1$SDF |> 
+  as.data.frame() |> 
+  select(starts_with("Corr")) |> 
+  mutate(geometry = df$geometry) |> 
+  st_as_sf()
+
+temp <- localstats1$SDF |> 
+  as.data.frame() |> 
+  select(Corr_con_swing.degree_educated,
+         Corr_con_swing.professionals,
+         Corr_con_swing.younger_adults,
+         Corr_con_swing.english_speaking,
+         Corr_con_swing.single_ethnicity_household,
+         Corr_con_swing.not_good_health,
+         Corr_con_swing.white,
+         Corr_con_swing.christian,
+         Corr_con_swing.own_home,
+         Corr_con_swing.no_car
+         ) |> 
+  mutate(geometry = df$geometry) |> 
+  st_as_sf()
+
+temp_hex <- localstats1$SDF |> 
+  as.data.frame() |> 
+  select(Corr_con_swing.degree_educated,
+         Corr_con_swing.professionals,
+         Corr_con_swing.younger_adults,
+         Corr_con_swing.english_speaking,
+         Corr_con_swing.single_ethnicity_household,
+         Corr_con_swing.not_good_health,
+         Corr_con_swing.white,
+         Corr_con_swing.christian,
+         Corr_con_swing.own_home,
+         Corr_con_swing.no_car
+         ) |> 
+  mutate(geometry = df_hex$geometry) |> 
+  st_as_sf()
+
+```
+
+```{r, fig.width=8, fig.height=8}
+#| fig-cap: "Geographically-weighted correlation coefficients for candidate explanatory variables against share of Butler swing"
+#| label: fig-gw-maps
+
+library(rcartocolor) 
+# https://github.com/EmilHvitfeldt/r-color-palettes/blob/master/type-sorted-palettes.md#diverging-color-palettes
+
+plot_list2 <- list()
+i=1
+vars2 <- names(temp)
+for (var in vars2){
+  
+  plot_list2[[i]] <-  ggplot() + 
+    geom_sf(data=temp_hex, aes_string(fill=var, colour=var), lwd=0.01) + 
+    coord_sf(datum=NA) + 
+    scale_fill_carto_c(palette = "Fall", type = "diverging", 
+                         labels = scales::number_format(accuracy = 0.1,
+                                                        decimal.mark = '.'),
+                         limits = c(-0.8,0.8),
+                         direction=1) + 
+    scale_colour_carto_c(palette = "Fall", type = "diverging", 
+                           labels = scales::number_format(accuracy = 0.1,
+                                                          decimal.mark = '.'),
+                           limits = c(-0.8,0.8),
+                           direction=1) + 
+    guides(colour="none") + 
+    theme_bw() + 
+    theme(legend.title = element_blank(),
+          legend.key.height = unit(0.1, 'cm'),
+          legend.key.width = unit(0.6, 'cm')) +
+    labs(title = str_remove(vars2[i],"Corr_con_swing.")) + 
+    theme(plot.title = element_text(size=8))
+  i = i+1
+}
+
+cor_plots2 <- ggarrange(plot_list2[[1]],plot_list2[[2]],plot_list2[[3]],plot_list2[[4]],plot_list2[[5]],
+                       plot_list2[[6]],plot_list2[[7]],plot_list2[[8]],plot_list2[[9]],plot_list2[[10]],
+                       nrow = 3, ncol = 4, legend = "bottom")
+
+cor_plots2
+
+```
+
+```{r, fig.width=8, fig.height=8}
+
+# cor_plots2
+
+```
+
+`degree-educated` and `professionals` might be regarded as "global" predictors; negative across England and Wales.
+
+`not_good_health` is positively associated with swing; particularly so towards in the East Midlands and East.
+
+`younger_adults`, `own_home` and `no_car` show a clear North/South divide as expressed by a line running roughly from the Bristol Channel to the Wash.
+
+`english_speaking`, `white`, `christian` and `single_ethnicity_household` share this North/South divide, but also incorporate a further visible subdivision which separates much of the South West and South Wales from the aforementioned diagonal North/South line.
+
+### Make 4 clusters based on GW local correlation coefficients between 10 variables and Butler swing, with Merseyside isolated
+
+```{r}
+
+temp_nogeo4 <- gw_corr[,1:10] |> 
+  mutate(region=df$region) |> 
+  st_drop_geometry()
+
+#factoextra::fviz_nbclust(temp_nogeo,kmeans) # show optimal clusters
+
+set.seed(1234)
+cluster.fit <- kmeans(temp_nogeo4[,1:10],4, nstart = 100)
+
+temp_nogeo4$cluster <- factor(cluster.fit$cluster)
+
+temp_nogeo4 <- temp_nogeo4 |> 
+  mutate(geometry = df$geometry) |> 
+  mutate(county = df$county) |> 
+  st_as_sf() |> 
+  mutate(area = factor(case_when(county =="Merseyside"~ "Merseyside",
+                                 cluster==1 ~ "South West",
+                          cluster==2 ~ "North",
+                          cluster==3 ~ "South",
+                          TRUE ~ "East, SE & London"),
+                       levels = c("North","East, SE & London","South West","South","Merseyside")))
+
+```
+
+```{r, fig.width=6, fig.height=6}
+#| fig-cap: "Five clusters, derived using k-means algorithm, of GW correlation coefficient between Butler swing and explanatory variables, with regions labelled"
+#| label: fig-clust-map
+
+library(wesanderson)
+# https://github.com/karthik/wesanderson
+
+cluster_sf <- temp_nogeo4 |> 
+  group_by(area) |> 
+  summarise()
+
+ggplot() + 
+  geom_sf(data=cluster_sf, aes(fill=area), lwd=0.01) + 
+  scale_fill_manual(values = wes_palette("Darjeeling2")) + 
+  scale_colour_manual(values = wes_palette("Darjeeling2")) + 
+  geom_sf(data=regions, fill=NA, lwd=0.5) + 
+  geom_sf_label(data=regions, aes(label=region),size=1) + 
+  coord_sf(datum=NA) + 
+  #geom_sf_label_repel(data=cluster_sf, aes(label=area), size=8, label.size=1, nudge_x=-0.85, alpha=0.5) + 
+  labs(fill="cluster") + 
+  theme_bw() + 
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank()) +
+  theme(plot.subtitle = element_text(size=9))
+
+```
+
+```{r, fig.width=12, fig.height=8}
+#| fig-cap: "Density of geographically-weighted local correlation of candidate explanatory variables against share of Butler swing"
+#| label: fig-gw-densities
+
+temp_nogeo5 <- temp_nogeo4 |> 
+  filter(area != "Merseyside")
+
+x1 <- ggplot(temp_nogeo5) + geom_density(aes(x=Corr_con_swing.degree_educated, fill=area)) + facet_wrap(~area, ncol = 1) + 
+  theme(legend.title = element_blank()) + 
+  theme_bw() + 
+  labs(x="degree") + 
+  theme(axis.title.x = element_text(colour="navyblue", size=16)) + 
+  # theme(strip.background =element_rect(fill="navyblue")) +
+  # theme(strip.text = element_text(colour = 'white')) + 
+  scale_fill_manual(values = wes_palette("Darjeeling2")) + 
+  scale_x_continuous(position = "top",
+                     labels = scales::number_format(accuracy = 0.1,
+                                 decimal.mark = '.'))
+  
+x2 <- ggplot(temp_nogeo5) + geom_density(aes(x=Corr_con_swing.younger_adults, fill=area)) + facet_wrap(~area, ncol = 1) + 
+  theme(legend.title = element_blank()) + 
+  theme_bw() +  
+  theme(axis.title.x = element_text(colour="navyblue", size=16)) + 
+  # theme(strip.background =element_rect(fill="navyblue")) +
+  # theme(strip.text = element_text(colour = 'white')) + 
+  labs(x="younger_adults") + 
+  scale_fill_manual(values = wes_palette("Darjeeling2")) + 
+  scale_x_continuous(position = "top",
+                     labels = scales::number_format(accuracy = 0.1,
+                                 decimal.mark = '.'))
+
+x3 <- ggplot(temp_nogeo5) + geom_density(aes(x=Corr_con_swing.not_good_health, fill=area)) + facet_wrap(~area, ncol = 1) + 
+  theme(legend.title = element_blank()) + 
+  theme_bw() + 
+  theme(axis.title.x = element_text(colour="firebrick4", size=16)) + 
+  # theme(strip.background =element_rect(fill="firebrick4")) +
+  # theme(strip.text = element_text(colour = 'white')) + 
+  labs(x="badhealth") + 
+  scale_fill_manual(values = wes_palette("Darjeeling2")) + 
+  scale_x_continuous(position = "top",
+                     labels = scales::number_format(accuracy = 0.1,
+                                 decimal.mark = '.'))
+
+x4 <- ggplot(temp_nogeo5) + geom_density(aes(x=Corr_con_swing.white, fill=area)) + facet_wrap(~area, ncol = 1) + 
+  theme(legend.title = element_blank()) + 
+  theme_bw() + 
+  theme(axis.text.x = element_text(vjust = 1, hjust=1)) + 
+  theme(axis.title.x = element_text(colour="firebrick4", size=16)) + 
+  # theme(strip.background =element_rect(fill="firebrick4")) +
+  # theme(strip.text = element_text(colour = 'white')) + 
+  labs(x="white") + 
+  scale_fill_manual(values = wes_palette("Darjeeling2")) + 
+  scale_x_continuous(position = "top",
+                     labels = scales::number_format(accuracy = 0.1,
+                                 decimal.mark = '.'))
+
+x5 <- ggplot(temp_nogeo5) + geom_density(aes(x=Corr_con_swing.no_car, fill=area)) + facet_wrap(~area, ncol = 1) + 
+  theme(legend.title = element_blank()) + 
+  theme_bw() + 
+  theme(axis.title.x = element_text(colour="darkgreen", size=16)) + 
+  # theme(strip.background =element_rect(fill="darkgreen")) +
+  # theme(strip.text = element_text(colour = 'white')) + 
+  labs(x="no_car") + 
+  scale_fill_manual(values = wes_palette("Darjeeling2")) + 
+  scale_x_continuous(position = "top",
+                     labels = scales::number_format(accuracy = 0.1,
+                                 decimal.mark = '.'))
+
+plot <- ggarrange(x1,x2,x3,x4,x5,
+                  #cluster4_map,
+                  nrow=1,common.legend = TRUE,legend = "right")
+
+plot
+
+```
+
+```{r, fig.width=12, fig.height=12}
+
+# plot <- ggarrange(x1,x2,x3,x4,x5,
+#                   #cluster4_map,
+#                   nrow=1,common.legend = TRUE,legend = "right")
+
+```
+
+Show variation in correlations between 5 variables used in reduced model and Butler swing across the 4 clusters identified by correlations across all 10 variables and Butler swing.
+
+```{r, fig.width=12, fig.height=8}
+
+# plot
+
+```
+
+## Cluster mixed models
+
+### Mixed model by cluster with correlated effects ('\|'-style in `lme4`)
+
+Next, a model is constructed as before. The fixed effects are show in @fig-cluster-fixed. While the AIC is higher, this is to be expected because fewer regions are present. The ICC has changed and reflects what is going on. However, the random effects (@fig-cluster-random) show interesting patterns of significance.
+
+Spatial autocorrelation Moran's-I is still low (@fig-cluster-resids), and geographic correlation (@fig-moran-cluster) not especially pronounced in some areas.
+
+These clusters do appear to have identified a particular set of dynamics.
+
+Looking at @fig-other-parties and @fig-con-flips, North is where almost all of the Conservative flipped seats occurred.
+
+East, SE & eastern London are places almost all of which were already Conservative in 2017, thus not allowing perhaps for much further increase. Perhaps the effect of switching to Conservatives for Brexit reasons had already occurred in 2017.
+
+The South West cluster features many areas of strength for LD and PC. Thus, the Butler swing between Labour and Conservatives is perhaps not so appropriate here to explain changes in voter behaviour. This may be reflected in the coefficients having no signifigance.
+
+The South area actually displays behaviour very similar to Merseyside. This cluster contains areas with strong Labour and Liberal Democrat support.
+
+Merseyside shows behaviour which, as expected, is very different and almost the opposite of the behaviour presented in the North West region in which it lies.
+
+with `lme4`
+
+```{r, fig.width=12, fig.height=4}
+#| fig-cap: "Fixed effects from five cluster mixed model"
+#| label: fig-cluster-fixed
+
+df_scaled2 <- df_scaled |> 
+  mutate(cluster = temp_nogeo4$area)
+mm2.6 <- lmer(con_swing ~
+              degree_educated +
+              younger_adults +
+              not_good_health +
+              white +
+              no_car +
+              (1+degree_educated+younger_adults+not_good_health+white+no_car|cluster), 
+            df_scaled2)
+
+#summary(mm2.6)
+
+# for ICC
+vars <- lapply(summary(mm2.6)$varcor, diag)
+resid_var <- attr(summary(mm2.6)$varcor, "sc")^2
+total_var <- sum(sapply(vars, sum), resid_var)
+
+# ICC # with random slopes
+icc_mm2.6 <- sapply(vars, sum)/total_var
+
+mm2.6_fix <- broom.mixed::tidy(mm2.6, effects="fixed", conf.int=TRUE) |> 
+  mutate(term = fct_reorder(term, estimate))
+mm2.6_rand <- broom.mixed::tidy(mm2.6, effects="ran_vals", conf.int=TRUE)
+
+
+ggplot(mm2.6_fix, aes(x=estimate, y=term,
+                      xmin=conf.low,
+                      xmax=conf.high,
+                      fill=estimate)) + 
+  geom_errorbar(lwd=1.5) + 
+  geom_point(colour="black", shape=21, size=3) + 
+  scale_fill_gradient2(low="blue",mid="white",high="red",midpoint = 0) + 
+  geom_vline(xintercept = 0, colour="red") + 
+  theme_bw() + 
+  guides(fill="none") + 
+  labs(x="coefficient effect", 
+       y=NULL,
+       subtitle = paste0(
+         "Butler swing to Conservatives by 5 demographic composition variables. \nAIC: ",
+         round(AIC(mm2.6),2),
+         ", ICC: ",
+         round(icc_mm2.6,2)
+       )
+  )
+
+
+# confint_boot_mm2 <- confint(mm2, method="boot", oldNames=F)
+# kbl(confint_boot_mm2)
+#
+# REsim(mm2)
+# FEsim(mm2)
+
+```
+
+```{r, fig.width=8, fig.height=10}
+
+mm2.6_rand2 <- mm2.6_rand |> 
+  filter(term != "(Intercept)") |> 
+  mutate(justification = c(
+    rep("post-industrial / knowledge economy",5),
+    rep("post-industrial / knowledge economy",5),
+    rep("diversity / values / outcomes",5),
+    rep("diversity / values / outcomes",5),
+    rep("metropolitan / 'big-city'",5))
+    )
+
+
+```
+
+```{r, fig.width=8, fig.height=6}
+#| fig-cap: "Random effects of five cluster mixed model, by cluster and variable justification"
+#| label: fig-cluster-random
+
+ggplot(mm2.6_rand2, aes(x=estimate, y=term,
+                        xmin=conf.low,
+                        xmax=conf.high, 
+                        fill=estimate)) + 
+  geom_errorbar(lwd=0.5, colour="black") + 
+  geom_point(shape=21, size=3) + 
+  scale_fill_gradient2(low="blue",mid="white",high="red",midpoint = 0) + 
+  geom_vline(xintercept = 0, colour="red") + 
+  theme_bw() + 
+  theme(plot.title =element_text(size=10, face='bold'),
+        plot.subtitle =element_text(size=8)) + 
+  guides(fill="none") + 
+  xlim(-2,2) + 
+  facet_grid(cols=vars(justification), rows=vars(level), scales = "free")
+
+```
+
+```{r, fig.width=4, fig.height=4}
+#| fig-cap: "Neighbourhood Effect in Residuals from cluster mixed model"
+#| label: fig-cluster-resids
+
+df_scaled_sf$resids_4clust <- resid(mm2.6)
+
+resid_mod_4clust <- gam(resids_4clust ~
+                          s(constituency_name,bs='mrf',xt=list(nb=nlistconst),k=285), 
+                        data=df_scaled_sf, method="REML")
+
+#summary(resid_mod_4clust)
+
+
+df_scaled_sf <- df_scaled_sf |> 
+  mutate(fitted_resids_4clust = resid_mod_4clust$fitted.values)
+
+ggplot() + 
+  geom_sf(data=df_scaled_sf, aes(fill=fitted_resids_4clust, colour=fitted_resids_4clust), lwd=0.1) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
+  scale_colour_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
+  coord_sf(datum=NA) + 
+  geom_sf(data=cluster_sf, fill=NA) + 
+  coord_sf(datum=NA) + 
+  guides(colour="none") + 
+  labs(fill="effect") +
+  theme_bw()
+
+```
+
+```{r, fig.width=8, fig.height=6, out.width=500, out.height=300}
+#| fig-cap: "Moran's scatterplot for mixed model, with fills by region for high leverage constituencies"
+#| label: fig-moran-cluster
+
+mp2 <- moran.plot(df_scaled_sf$resids_4clust, df_wts, zero.policy = TRUE, labels = df_scaled_sf$constituency_name, plot=FALSE) |> 
+  mutate(region=df$region,
+         area=temp_nogeo4$area)
+
+temp_reg2 <- lm(wx~x,mp2)
+
+xname <- attr(mp2, "xname")
+ggplot(mp2, aes(x=x, y=wx)) + 
+  geom_point(shape=1) + 
+  geom_smooth(formula=y ~ x, method="lm") + 
+  geom_hline(yintercept=mean(mp$wx), lty=2) + 
+  geom_vline(xintercept=mean(mp$x), lty=2) + 
+  theme_bw() + 
+  geom_point(data=mp[mp2$is_inf,], aes(x=x, y=wx, fill=region), shape=21, size=4) +
+  #geom_label(data=mp[mp2$is_inf,], aes(x=x, y=wx, label=labels, fill=region), size=2.5) +
+  guides(fill = guide_legend(
+    title = "region",
+    override.aes = aes(label = ""))) +
+  xlab("Residuals") + 
+  ylab(paste0("Spatially lagged Residuals")) +
+  ylim(-10,10) +
+  scale_fill_brewer(palette = "Set3") + 
+  labs(subtitle = paste0("Slope = ",round(temp_reg2$coefficients[2],2))) + 
+  theme(legend.position = "bottom")
+
+```
+
+```{r, fig.width=6, fig.height=4}
+#| fig-cap: "High performance by other parties in each cluster"
+#| label: fig-other-parties
+
+df$explain_clusters <- factor(case_when(df$lab_19 > 50 ~ "labour > 50%",
+                                 df$pc_19 > 30 ~ "pc > 30%",
+                                 df$ld_19 > 30 ~ "lib dem > 30%",
+                                 TRUE ~ "other"),
+                              levels = c("labour > 50%","lib dem > 30%","pc > 30%","other"))
+other_parties_high <- ggplot() + 
+  geom_sf(data=df, aes(fill=explain_clusters),colour=NA) + 
+  scale_fill_manual(values = c("darkred","goldenrod4","darkgreen","honeydew")) + 
+  geom_sf(data=cluster_sf, fill=NA, lwd=4, colour="black") + 
+  geom_sf_label(data=cluster_sf, aes(label=area), size=2, alpha=0.5) + 
+  coord_sf(datum = NA) + 
+  labs(fill = "Other\nparties") + 
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+other_parties_high 
+
+```
+
+```{r, fig.width=6, fig.height=4}
+#| fig-cap: "Conservative flipped seats and 2017 seats by cluster"
+#| label: fig-con-flips
+
+df$con_seats_examine <- case_when(df$con_winner_17 == "Con17" ~ "Conservative 2017",
+                                  df$con_flip_1917 == "ConFlip" ~ "Con flip 2019",
+                                  TRUE ~ "Not Conservative 2017")
+con_flip_seat <- ggplot() + 
+  geom_sf(data=df, aes(fill=con_seats_examine),colour=NA) + 
+  scale_fill_manual(values = c("blue","lightblue3", "lightcoral")) + 
+  geom_sf(data=cluster_sf, fill=NA, lwd=8, colour="black") +
+  geom_sf_label(data=cluster_sf, aes(label=area), size=2, alpha=0.5) + 
+  coord_sf(datum = NA) + 
+  labs(fill="Conservative\nseats") + 
+  theme_bw() +
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_blank())
+
+con_flip_seat
+
+```
+
+## Limitations
+
+Areal data - somewhat arbitrary Ecological fallacy Butler swing - not something we would necessarily be interested in measuring in certain areas where Labour are not the primary competition to the Conservatives. Spatial processes have not been moddelled within the regression, rather the patterns in the residuals have been examined. A large amount of swing had already occurred in certain areas in the 2017 post-Brexit election, and these moves are not captured. Thus, clusters North and Merseyside perhaps the most interesting aspect since switching of the type being modelled is of particular interest in these Red Wall areas.
+
+## References
