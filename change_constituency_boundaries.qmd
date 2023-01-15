@@ -86,7 +86,7 @@ set.seed(123)
 
 ```{r, warning=FALSE, message=FALSE}
 
-df <- readRDS(here("data","df_withtext.rds")) |> 
+df <- readRDS("/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/df.rds") |> 
   mutate(degree_educated = degree,
          professionals = industry_professional,
          younger_adults = age_18_to_19 + age_20_to_24 + age_25_to_29 + age_30_to_44,
@@ -385,6 +385,7 @@ It takes an extremely long time to perform skater algorithm on this number of un
 #| warning: false
 #| echo: false
 
+# To download output area boundaries and census statistics, and then merge them....as output_df
 
 # https://www.kaggle.com/datasets/kulbinderdio/uk2011census?select=Output_Areas__December_2011__Boundaries_EW_BFC-shp
 
@@ -457,7 +458,7 @@ It takes an extremely long time to perform skater algorithm on this number of un
 #| warning: false
 #| echo: false
 
-output_df <- readRDS(here("data","output_df.rds"))
+output_df <- readRDS("/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/output_df.rds")
 
 # scale the variables
 op_scaled <- output_df
@@ -480,7 +481,7 @@ op_scaled_region <- op_scaled |>
 # output_scregsf$region <- factor(output_scregsf$region)
 #  saveRDS(output_scregsf,"output_scregsf.rds")
 
-output_scregsf <- readRDS(here("data","output_scregsf.rds"))
+output_scregsf <- readRDS("/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/output_scregsf.rds")
 
 ```
 
@@ -759,7 +760,7 @@ df.mst2 <- mstree(df.w2)
 # 
 # saveRDS(m_opsf1,"m_opsf1.rds")
 
-m_opsf1 <- readRDS(here("data","m_opsf1.rds"))
+m_opsf1 <- readRDS("/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/m_opsf1.rds")
   
 ggplot() + 
   geom_sf(data=m_opsf1, aes(fill=ccs1), lwd=0.1, colour=NA) + 
@@ -923,7 +924,7 @@ df.mst2 <- mstree(df.w2)
 # 
 # saveRDS(ne_opsf1,"ne_opsf1.rds")
 
-ne_opsf1 <- readRDS(here("data","ne_opsf1.rds"))
+ne_opsf1 <- readRDS("/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/ne_opsf1.rds")
 
 ggplot() + 
   geom_sf(data=ne_opsf1, aes(fill=ccs1), lwd=0.1, colour=NA) + 
@@ -1082,7 +1083,7 @@ Much quicker and more manageable than output areas above
 # 
 # saveRDS(lso_df, "lso_df.rds")
 
-lso_df <- readRDS(here("data","lso_df.rds"))
+lso_df <- readRDS("/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/lso_df.rds")
 
 # scale the variables
 lso_dfsc <- lso_df
@@ -1854,7 +1855,7 @@ Loop to create new boundaries.
 # saveRDS(b_list, "b_list.rds")
 # saveRDS(new_polys, "new_polys.rds")
 
-new_polys <- readRDS(here("data","new_polys.rds"))
+new_polys <- readRDS("/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/new_polys.rds")
 # b_list <- readRDS(here("b_list.rds"))
 
 new_polys_df <- rbind(new_polys[[1]],
@@ -1957,7 +1958,7 @@ fills <- c("new" = "red", "original" = "blue")
 colours <- c("new" = "darkred", "original" = "darkblue")
 
 # saveRDS(reconciled, "new_boundaries.rds")
-new_boundaries <- readRDS(here("data","new_boundaries.rds"))
+new_boundaries <- readRDS("/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/new_boundaries.rds")
 
 ggplot(new_boundaries) + 
   geom_density(aes(x=test, fill="new", colour="new")) + 

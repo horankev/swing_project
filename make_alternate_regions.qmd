@@ -87,7 +87,7 @@ set.seed(123)
 
 ```{r, warning=FALSE, message=FALSE}
 
-df <- readRDS(here("data","df_withtext.rds")) |> 
+df <- readRDS("/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/df.rds") |> 
   mutate(degree_educated = degree,
          professionals = industry_professional,
          younger_adults = age_18_to_19 + age_20_to_24 + age_25_to_29 + age_30_to_44,
@@ -327,7 +327,7 @@ clusters <- df_clus |>
 # then very convoluted way to ascribe names to new regions
 # based on if they feature the following cities...
 
-cities <- read.csv(here("data","worldcities.csv")) |> 
+cities <- read.csv("/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/worldcities.csv") |> 
   filter(country == "United Kingdom",
          population > 150000,
          city != "Glasgow",

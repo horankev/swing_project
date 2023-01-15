@@ -233,7 +233,7 @@ df <- all_elections_census_polygons |>
 
 ```{r}
 
-saveRDS(df, "/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/df.rds")
+# saveRDS(df, "/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/df.rds")
 
 ```
 
