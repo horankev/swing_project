@@ -1,0 +1,917 @@
+---
+title: "Swing in previous elections"
+author: "Kevin Horan"
+execute: 
+  echo: false
+  warning: false
+  message: false
+  code-fold: false
+  cache: false
+toc: true
+number-sections: true
+format:
+  pdf: default
+editor: source
+bibliography: references.bib
+---
+
+```{r, warning=FALSE, message=FALSE}
+
+# install.packages("devtools")
+# devtools::install_github("m-clark/gammit")
+
+packages <- c(
+  "MASS",
+  "tidyverse",
+  "sf",
+  "tmap",
+  "here",
+  "spdep", # areal data
+  "grid",
+  "GWmodel",
+  "kableExtra",
+  "cowplot",
+  "parlitools",
+  "corrplot",
+  "cartogram",
+  "lme4",
+  "mgcv",
+  "ggfortify",
+  "ggforce", # has geom_circle
+  "gridExtra",
+  "car",
+  "rgeoda", # for LISA
+  "ggpubr",
+  "ggrepel",
+  "ggpointdensity",
+  "ggalt", # for geom_encircle
+  "ggsflabel", # has repel labels for sf
+  "viridis",
+  "spatialreg",
+  "rgdal",
+  "rgeos",
+  "randomForest",
+  "broom",
+  "patchwork",
+  "broom.mixed", # extract tidy output
+  "merTools", # with plot functions
+  "DiagrammeR", # mermaid
+  "gammit" # for pulling out ran and fixed effs
+  )
+
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+options(kableExtra.latex.load_packages = TRUE)
+
+tmap_mode("plot")
+rm(list=ls())
+
+```
+
+```{r}
+
+# avoid conflict with dplyr and MASS::select
+select <- dplyr::select
+
+set.seed(123)
+
+```
+
+```{r, warning=FALSE, message=FALSE}
+
+df <- readRDS("/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/df.rds") |> 
+  mutate(degree_educated = degree,
+         professionals = industry_professional,
+         younger_adults = age_18_to_19 + age_20_to_24 + age_25_to_29 + age_30_to_44,
+         english_speaking = english_all,
+         single_ethnicity_household = 100 - ethnicity_mixed,
+         health_not_good = health_fair + health_bad + health_very_bad,
+         deprived = deprived_1 + deprived_2 + deprived_3,
+         white = ethnicity_white,
+         christian = christian,
+         own_home = house_owned,
+         no_car = cars_none,
+         density = density,
+         region = as.character(region),
+         region = factor(ifelse(county == "Merseyside", "Merseyside", region)),
+         region = factor(region)) |> 
+  st_as_sf() |> 
+  st_transform(crs=27700)
+
+hex <- west_hex_map
+df_hex <- df |> 
+  st_drop_geometry() |> 
+  inner_join(hex |> select(-"constituency_name"), #  no letter case confusion
+             by = c("ons_const_id"="gss_code")) |> 
+  st_as_sf()
+
+hex_regions <- df_hex |> 
+  group_by(region) |> 
+  summarise() |> 
+  st_as_sf()
+
+regions <- df |> group_by(region) |> 
+  summarise() |> 
+  st_as_sf() |> 
+  st_transform(crs=27700)
+
+
+vardf <- data.frame(variable = c("degree_educated",
+               "professionals",
+               "younger_adults",
+               "english_speaking",
+               "single_ethnicity_household",
+               "deprived",
+               "white",
+               "christian",
+               "own_home",
+               "no_car"))
+
+var_justification <- data.frame(
+  variable = c("degree_educated",
+               "professionals",
+               "younger_adults",
+               "english_speaking",
+               "single_ethnicity_household",
+               "deprived",
+               "white",
+               "christian",
+               "own_home",
+               "no_car"),
+  justification = c(rep("post-industrial / knowledge economy",3),
+                    rep("diversity / values / outcomes",5),
+                    rep("metropolitan / 'big-city'",2)),
+  jcolour = c(rep("navyblue",3),
+                    rep("firebrick4",5),
+                    rep("darkgreen",2))
+)
+
+
+# scale the variables to better judge relative strength of effects
+df_scaled <- df |> 
+  st_drop_geometry() |> 
+  select(degree_educated,
+    professionals,
+    younger_adults,
+    english_speaking,
+    single_ethnicity_household,
+    health_not_good,
+    white,
+    christian,
+    own_home,
+    no_car) |> 
+  scale() |> 
+  as.data.frame() |> 
+  mutate(con_swing=df$con_swing,
+         region=df$region)
+
+
+df_scaled_sf <- df_scaled |> 
+  mutate(constituency_name = df$constituency_name, 
+         geometry = df$geometry) |> 
+  st_as_sf()
+
+```
+
+# Swings through the elections...
+
+## Global swing by election: mean constituency swing
+
+```{r}
+
+# calculate % swings for each time period, rounded to 1 decimal place
+
+swing1719 <- round(100*
+  (((sum(df$con_vote_19)/sum(df$total_vote_19)) - (sum(df$con_vote_17)/sum(df$total_vote_17))) -
+                ((sum(df$lab_vote_19)/sum(df$total_vote_19)) - (sum(df$lab_vote_17)/sum(df$total_vote_17)))) / 2,
+  1)
+
+swing1517 <- round(100*
+  (((sum(df$con_vote_17)/sum(df$total_vote_17)) - (sum(df$con_vote_15)/sum(df$total_vote_15))) -
+                ((sum(df$lab_vote_17)/sum(df$total_vote_17)) - (sum(df$lab_vote_15)/sum(df$total_vote_15)))) / 2,
+  1)
+
+swing1015 <- round(100*
+  (((sum(df$con_vote_15)/sum(df$total_vote_15)) - (sum(df$con_vote_10)/sum(df$total_vote_10))) -
+                ((sum(df$lab_vote_15)/sum(df$total_vote_15)) - (sum(df$lab_vote_10)/sum(df$total_vote_10)))) / 2,
+  1)
+
+swing1019 <- round(100*
+  (((sum(df$con_vote_19)/sum(df$total_vote_19)) - (sum(df$con_vote_10)/sum(df$total_vote_10))) -
+                ((sum(df$lab_vote_19)/sum(df$total_vote_19)) - (sum(df$lab_vote_10)/sum(df$total_vote_10)))) / 2,
+  1)
+
+swing1017 <- round(100*
+  (((sum(df$con_vote_17)/sum(df$total_vote_17)) - (sum(df$con_vote_10)/sum(df$total_vote_10))) -
+                ((sum(df$lab_vote_17)/sum(df$total_vote_17)) - (sum(df$lab_vote_10)/sum(df$total_vote_10)))) / 2,
+  1)
+
+mermaid("
+
+graph LR;
+    B((2017)) ==> E[Swing: +4.9%]
+    E ==> A((2019))
+    C((2015)) ==> F[Swing: -2.9%] 
+    F ==> B
+    D((2010)) ==> G[Swing: -1%]
+    G ==> C
+    D ==> H[Swing: -3.9%]
+    H ==> B
+    D ==> I[Swing: +1%] 
+    I ==> A
+    
+    style A fill:#CFF6F9,stroke:#333,stroke-width:5px
+    style B fill:#F8E82F,stroke:#333,stroke-width:4px
+    style C fill:#DE8E89,stroke:#333,stroke-width:3px
+    style D fill:#FCFEFE,stroke:#333,stroke-width:2px
+    style E fill:#CFF6F9,stroke:#333,stroke-width:3px
+    style F fill:#F8E82F,stroke:#333,stroke-width:3px
+    style G fill:#DE8E89,stroke:#333,stroke-width:3px
+    style H fill:#FCFEFE,stroke:#333,stroke-width:1px
+    style I fill:#FCFEFE,stroke:#333,stroke-width:1px
+
+")
+
+```
+
+## Brexit association with swing
+
+-   Those constituencies which were to favour Brexit in 2016 did not show a tendency to swing either to Labour or Conservatives in 2010/15.
+
+-   High Brexit voting constituencies all registered positive Conservative swing in 2015/17.
+
+-   By 2017/19, all constituencies voting over 50% leave have a positive Conservative swing.
+
+```{r, fig.width=12, fig.height=4}
+
+df_scaled$s1019 <- ((df$con_19-df$con_10) - (df$lab_19-df$lab_10)) / 2
+df_scaled$s1017 <- ((df$con_17-df$con_10) - (df$lab_17-df$lab_10)) / 2
+df_scaled$s1015 <- ((df$con_15-df$con_10) - (df$lab_15-df$lab_10)) / 2
+df_scaled$s1517 <- ((df$con_17-df$con_15) - (df$lab_17-df$lab_15)) / 2
+df_scaled$s1519 <- ((df$con_19-df$con_15) - (df$lab_19-df$lab_17)) / 2
+df_scaled$s1719 <- ((df$con_19-df$con_17) - (df$lab_19-df$lab_17)) / 2
+
+df_scaled$brexit <- cut(df$leave_hanretty,breaks = c(20,30,seq(40,70,by=5),80))
+
+hist1719 <- ggplot(df_scaled) + geom_histogram(aes(x=s1719, fill=brexit),colour="black",binwidth = 0.5) + 
+  scale_fill_brewer(palette = "RdGy", direction = -1) + 
+  geom_vline(xintercept = 0, colour="darkgreen", lwd=2) + 
+  labs(fill="Brexit vote %",
+       x="Swing 2017/19") + 
+  xlim(-20,20) + 
+  theme_bw()
+
+hist1517 <- ggplot(df_scaled) + geom_histogram(aes(x=s1517, fill=brexit),colour="black",binwidth = 0.5) + 
+  scale_fill_brewer(palette = "RdGy", direction = -1) + 
+  geom_vline(xintercept = 0, colour="darkgreen", lwd=2) + 
+  labs(fill="Brexit vote %",
+       x="Swing 2015/17") + 
+  xlim(-20,20) + 
+  theme_bw()
+
+hist1015 <- ggplot(df_scaled) + geom_histogram(aes(x=s1015, fill=brexit),colour="black",binwidth = 0.5) + 
+  scale_fill_brewer(palette = "RdGy", direction = -1) + 
+  geom_vline(xintercept = 0, colour="darkgreen", lwd=2) + 
+  labs(fill="Brexit vote %",
+       x="Swing 2010/15") + 
+  xlim(-20,20) + 
+  theme_bw()
+
+```
+
+```{r, fig.width=12, fig.height=12}
+
+ggarrange(hist1015, hist1517, hist1719, nrow = 3, common.legend = TRUE, legend = "bottom")
+
+```
+
+## Regional swings by election
+
+-   In regions where the largest swings were to occur in 2017-19 (blue), this can be anticipated as the right tail of their swing distribution did not retreat between 2010-15 (red) and 2015-17 (yellow).
+
+-   This can be seen in the North East, Yorkshire and The Humber, the North West, West Midlands, East Midlands and Merseyside.
+
+-   A retreat in the right tail in 2015-17 swing is observable in the East, London, South East, South West and Wales.
+
+```{r,fig.width=8, fig.height=6}
+
+fills <- c("2010-15" = "#DE8E89", "2015-17" = "#F8E82F", "2017-19" = "#CFF6F9")
+
+ggplot(df_scaled) + 
+  geom_density(aes(x=s1015, fill="2010-15"), colour="black", alpha=0.8) + 
+  geom_density(aes(x=s1517, fill="2015-17"), colour="black", alpha=0.8) + 
+  geom_density(aes(x=s1719, fill="2017-19"), colour="black", alpha=0.8) +
+  geom_vline(xintercept = 0, colour="red") + 
+  xlim(-25,25) + 
+  scale_fill_manual(values = fills) + 
+  theme_bw() + 
+  theme(legend.position = "bottom") + 
+  labs(x="Swing densities",
+       fill="Years of swing",
+       title = "Conservative / Labour Swing",
+       subtitle = "for three inter-election periods") +
+  facet_wrap(~region, scales = "free",ncol = 3)
+
+```
+
+\newpage
+
+## Visualising the swings
+
+```{r, fig.width=12, fig.height=12}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+constit_cont <- cartogram_cont(df,weight="population") |>
+  mutate(s1719 = df_scaled$s1719,
+         s1517 = df_scaled$s1517,
+         s1015 = df_scaled$s1015)
+
+sw1719 <- ggplot(constit_cont) + 
+  geom_sf(aes(fill=s1719), lwd=0.1) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
+  coord_sf(datum=NA) + 
+  labs(fill="Swing",
+       title = "Swing 2017/19",
+       subtitle = "Equal population and area") + 
+  theme_bw()
+
+sw1719
+
+```
+
+-   Map skewed such that every pixel has equal population.
+
+-   The genesis of the swing to the Conservatives in the north which brought sweeping seat changes in 2019 is visible in the 2015-17 swing. While it may not have been enough to win those long-held Labour seats in that election, it continued into 2017-19
+
+
+```{r, fig.width=12, fig.height=12}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+sw1517 <- ggplot(constit_cont) + 
+  geom_sf(aes(fill=s1517), lwd=0.1) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
+  coord_sf(datum=NA) + 
+  labs(fill="Swing",
+       title = "Swing 2015/17 (Post Brexit referendum)",
+       subtitle = "Equal population and area") + 
+  theme_bw()
+
+sw1015 <- ggplot(constit_cont) + 
+  geom_sf(aes(fill=s1015), lwd=0.1) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
+  coord_sf(datum=NA) + 
+  labs(fill="Swing",
+       title = "Swing 2010/15 (pre Brexit referendum)",
+       subtitle = "Equal population and area") + 
+  theme_bw()
+
+ggarrange(sw1517,sw1015, nrow = 2, common.legend = TRUE, legend = "bottom")
+
+```
+
+\newpage
+
+## Swing 2017-19
+
+```{r, fig.width=12, fig.height=4}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+nlistreg <- regions %>% st_touches()
+names(nlistreg) <- regions$region
+df_sc_region <- df_scaled_sf |> 
+  st_drop_geometry() |> 
+  left_join(regions) |> 
+  st_as_sf()
+
+mm1719 <- gam(con_swing ~
+               degree_educated +
+               younger_adults +
+               health_not_good +
+               white + 
+               #no_car +
+               s(degree_educated,region, bs="re") +
+               s(younger_adults,region, bs="re") +
+               s(health_not_good,region, bs="re") +
+               s(white,region, bs="re") +
+               #s(no_car,region, bs="re") +
+               s(region,bs='mrf',xt=list(nb=nlistreg)),
+             data=df_sc_region, method="REML")
+
+summary(mm1719)
+
+temp <- tibble(
+  degree_educated=rep(1,nrow(df_scaled_sf)),
+  younger_adults=rep(1,nrow(df_scaled_sf)),
+  health_not_good=rep(1,nrow(df_scaled_sf)),
+  white=rep(1,nrow(df_scaled_sf)),
+  no_car=rep(1,nrow(df_scaled_sf)),
+  region=df_sc_region$region)
+
+
+mm1719df <- predict(mm1719,newdata = temp,type = "terms", se.fit = TRUE) |> 
+  as.data.frame() |> 
+  cbind(df |> select(geometry,
+                     region)) |> 
+  as.data.frame() |> 
+  st_as_sf() |> 
+  st_transform(crs=27700)
+
+mm1719df_reg <- regions |> 
+  left_join(mm1719df |> st_drop_geometry())
+
+p1_mm1719 <- ggplot(mm1719df_reg) + 
+  geom_sf(aes(fill=`fit.s.region.`), lwd=0.1) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
+  coord_sf(datum=NA) + 
+  geom_sf(data=regions, fill=NA) + 
+  coord_sf(datum=NA) + 
+  theme_bw() +
+  labs(fill = "geographic\neffect",
+       title = "Random neighbourhood effect",
+       subtitle = "by region")
+
+mm1719df_unique <- mm1719df |> 
+  st_drop_geometry() |> 
+  group_by(region) |> 
+  unique()
+
+fe_mm1719 <- extract_fixed(mm1719, ci_level = 0.95, digits = 3) |>  
+  mutate(term = fct_reorder(term, value))
+
+re_mm1719 <- extract_ranef(mm1719, ci_level = 0.95, digits = 3) |>  
+  mutate(term = fct_reorder(effect, value))
+
+fe_mm1719$swingto <- case_when(fe_mm1719$value>0 ~ "Conservative",
+                               TRUE ~ "Labour")
+
+p2_mm1719 <- ggplot(fe_mm1719, aes(x=value, y=term,
+                 xmin=lower_2.5,
+                 xmax=upper_97.5, 
+                 fill=swingto,
+                 colour=swingto)) + 
+  geom_errorbar(lwd=1.5, colour="black") + 
+  geom_point(shape=21, size=3) + 
+  scale_fill_manual(breaks = c("Conservative", "Labour"),
+                     values = c("darkblue", "firebrick4")) + 
+  scale_colour_manual(breaks = c("Conservative", "Labour"),
+                     values = c("darkblue", "firebrick4")) + 
+  geom_vline(xintercept = 0, colour="red") + 
+  theme_bw() + 
+  guides(fill="none",
+         colour="none") + 
+  labs(x="coefficient effect", 
+       y=NULL,
+       title = "Fixed effects from mixed model",
+       subtitle = paste0("Butler swing to Conservatives by 5 demographic composition variables. \nAIC: ",
+                         round(AIC(mm1719))))
+
+#ggarrange(p2_mm1719,p1_mm1719)
+
+```
+
+```{r}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+pvals <- tidy(mm1719) |> 
+  select(p.value) |> 
+  round(3) |> 
+  rbind("-") |> 
+  data.frame()
+
+gratia::variance_comp(mm1719) |> 
+  data.frame() |> 
+  mutate(`total variance` = sum(variance),
+         `variance (%)` = round(100*variance/`total variance`,2),
+         variance= round(variance,2),
+         `cum. variance (%)` = round(cumsum(`variance (%)`),1),
+         `p-vals (F-test)` = pvals) |> 
+  select(component,variance,`variance (%)`,`cum. variance (%)`,`p-vals (F-test)`) |> 
+  kbl() |> 
+  kable_classic(full_width = F) |> 
+  row_spec(4, hline_after = T) |> 
+  row_spec(5, hline_after = T, background = "#DAF7A6") |> 
+  row_spec(6, background = "#F8BBC2") |> 
+  row_spec(0, bold=T)
+
+```
+
+```{r}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+mm_plot_list1719 <- list()
+i=1
+for (var in levels(df_scaled$region)){
+  mmtemp <- re_mm1719[re_mm1719$group==levels(df_scaled$region)[i],]
+  mmtemp$swingto <- case_when(mmtemp$value>0 ~ "Conservative",
+                              TRUE ~ "Labour")
+  mm_plot_list1719[[i]] <- ggplot(mmtemp, aes(x=value, y=effect,
+                                              xmin=lower_2.5,
+                                              xmax=upper_97.5, 
+                                              fill=swingto,
+                                              colour=swingto)) + 
+    geom_errorbar(lwd=0.5, colour="black") + 
+    geom_point(shape=21, size=3) + 
+    scale_fill_manual(breaks = c("Conservative", "Labour"),
+                      values = c("darkblue", "firebrick4")) + 
+    scale_colour_manual(breaks = c("Conservative", "Labour"),
+                        values = c("darkblue", "firebrick4")) + 
+    geom_vline(xintercept = 0, colour="red") + 
+    theme_bw() + 
+    theme(plot.title =element_text(size=10, face='bold'),
+          plot.subtitle =element_text(size=8)) + 
+    labs(x="coefficient effect", 
+         y=NULL, 
+         title = levels(df_scaled$region)[i]) + 
+    guides(fill="none",
+           colour="none")
+  
+  i= i+1
+}
+
+```
+
+```{r, fig.width=10,fig.height=8}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+# (plot_spacer()|plot_spacer()|mm_plot_list1719[[5]]|plot_spacer()) /
+#   (plot_spacer()|mm_plot_list1719[[4]]|mm_plot_list1719[[6]]|mm_plot_list1719[[11]]|plot_spacer()) /
+#   (mm_plot_list1719[[9]]|mm_plot_list1719[[10]]|mm_plot_list1719[[2]]|mm_plot_list1719[[1]]) /
+#   (plot_spacer()|mm_plot_list1719[[8]]|mm_plot_list1719[[3]]|mm_plot_list1719[[7]]) +
+#   plot_annotation(
+#     title = "Random effects from mixed model",
+#     subtitle = "5 variables, by region",
+#     theme = theme(plot.title = element_text(size = 16))
+#   )
+
+```
+
+\newpage
+
+## Swing 2015/17
+
+```{r, fig.width=12, fig.height=4}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+df_sc_region$con_swing17 <- ((df$con_17-df$con_15) - (df$lab_17-df$lab_15)) / 2
+
+mm1517 <- gam(con_swing17 ~
+               degree_educated +
+               younger_adults +
+               health_not_good +
+               white +
+               #no_car +
+               s(degree_educated,region, bs="re") +
+               s(younger_adults,region, bs="re") +
+               s(health_not_good,region, bs="re") +
+               s(white,region, bs="re") +
+               #s(no_car,region, bs="re") +
+               s(region,bs='mrf',xt=list(nb=nlistreg)),
+             data=df_sc_region, method="REML")
+
+summary(mm1517)
+
+temp <- tibble(
+  degree_educated=rep(1,nrow(df_scaled_sf)),
+  younger_adults=rep(1,nrow(df_scaled_sf)),
+  health_not_good=rep(1,nrow(df_scaled_sf)),
+  white=rep(1,nrow(df_scaled_sf)),
+  no_car=rep(1,nrow(df_scaled_sf)),
+  region=df_sc_region$region)
+
+
+mm1517df <- predict(mm1517,newdata = temp,type = "terms", se.fit = TRUE) |> 
+  as.data.frame() |> 
+  cbind(df |> select(geometry,
+                     region)) |> 
+  as.data.frame() |> 
+  st_as_sf() |> 
+  st_transform(crs=27700)
+
+mm1517df_reg <- regions |> 
+  left_join(mm1517df |> st_drop_geometry())
+
+p1_mm1517 <- ggplot(mm1517df_reg) + 
+  geom_sf(aes(fill=`fit.s.region.`), lwd=0.1) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
+  coord_sf(datum=NA) + 
+  geom_sf(data=regions, fill=NA) + 
+  coord_sf(datum=NA) + 
+  theme_bw() +
+  labs(fill = "geographic\neffect",
+       title = "Random neighbourhood effect",
+       subtitle = "by region")
+
+mm1517df_unique <- mm1517df |> 
+  st_drop_geometry() |> 
+  group_by(region) |> 
+  unique()
+
+fe_mm1517 <- extract_fixed(mm1517, ci_level = 0.95, digits = 3) |>  
+  mutate(term = fct_reorder(term, value))
+
+re_mm1517 <- extract_ranef(mm1517, ci_level = 0.95, digits = 3) |>  
+  mutate(term = fct_reorder(effect, value))
+
+fe_mm1517$swingto <- case_when(fe_mm1517$value>0 ~ "Conservative",
+                               TRUE ~ "Labour")
+
+p2_mm1517 <- ggplot(fe_mm1517, aes(x=value, y=term,
+                 xmin=lower_2.5,
+                 xmax=upper_97.5, 
+                 fill=swingto,
+                 colour=swingto)) + 
+  geom_errorbar(lwd=1.5, colour="black") + 
+  geom_point(shape=21, size=3) + 
+  scale_fill_manual(breaks = c("Conservative", "Labour"),
+                     values = c("darkblue", "firebrick4")) + 
+  scale_colour_manual(breaks = c("Conservative", "Labour"),
+                     values = c("darkblue", "firebrick4")) + 
+  geom_vline(xintercept = 0, colour="red") + 
+  theme_bw() + 
+  guides(fill="none",
+         colour="none") + 
+  labs(x="coefficient effect", 
+       y=NULL,
+       title = "Fixed effects from mixed model",
+       subtitle = paste0("Butler swing to Conservatives by 5 demographic composition variables. \nAIC: ",
+                         round(AIC(mm1517))))
+
+#ggarrange(p2_mm1517,p1_mm1517)
+
+```
+
+```{r}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+pvals <- tidy(mm1517) |> 
+  select(p.value) |> 
+  round(3) |> 
+  rbind("-") |> 
+  data.frame()
+
+gratia::variance_comp(mm1517) |> 
+  data.frame() |> 
+  mutate(`total variance` = sum(variance),
+         `variance (%)` = round(100*variance/`total variance`,2),
+         variance= round(variance,2),
+         `cum. variance (%)` = round(cumsum(`variance (%)`),1),
+         `p-vals (F-test)` = pvals) |> 
+  select(component,variance,`variance (%)`,`cum. variance (%)`,`p-vals (F-test)`) |> 
+  kbl() |> 
+  kable_classic(full_width = F) |> 
+  row_spec(4, hline_after = T) |> 
+  row_spec(5, hline_after = T, background = "#DAF7A6") |> 
+  row_spec(6, background = "#F8BBC2") |> 
+  row_spec(0, bold=T)
+
+```
+
+```{r}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+mm_plot_list1517 <- list()
+i=1
+for (var in levels(df_scaled$region)){
+  mmtemp <- re_mm1517[re_mm1517$group==levels(df_scaled$region)[i],]
+  mmtemp$swingto <- case_when(mmtemp$value>0 ~ "Conservative",
+                              TRUE ~ "Labour")
+  mm_plot_list1517[[i]] <- ggplot(mmtemp, aes(x=value, y=effect,
+                                              xmin=lower_2.5,
+                                              xmax=upper_97.5, 
+                                              fill=swingto,
+                                              colour=swingto)) + 
+    geom_errorbar(lwd=0.5, colour="black") + 
+    geom_point(shape=21, size=3) + 
+    scale_fill_manual(breaks = c("Conservative", "Labour"),
+                      values = c("darkblue", "firebrick4")) + 
+    scale_colour_manual(breaks = c("Conservative", "Labour"),
+                        values = c("darkblue", "firebrick4")) + 
+    geom_vline(xintercept = 0, colour="red") + 
+    theme_bw() + 
+    theme(plot.title =element_text(size=10, face='bold'),
+          plot.subtitle =element_text(size=8)) + 
+    labs(x="coefficient effect", 
+         y=NULL, 
+         title = levels(df_scaled$region)[i]) + 
+    guides(fill="none",
+           colour="none")
+  
+  i= i+1
+}
+
+```
+
+```{r, fig.width=10,fig.height=8}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+# (plot_spacer()|plot_spacer()|mm_plot_list1517[[5]]|plot_spacer()) / 
+#   (plot_spacer()|mm_plot_list1517[[4]]|mm_plot_list1517[[6]]|mm_plot_list1517[[11]]|plot_spacer()) / 
+#   (mm_plot_list1517[[9]]|mm_plot_list1517[[10]]|mm_plot_list1517[[2]]|mm_plot_list1517[[1]]) /
+#   (plot_spacer()|mm_plot_list1517[[8]]|mm_plot_list1517[[3]]|mm_plot_list1517[[7]]) +
+#   plot_annotation(
+#     title = "Random effects from mixed model",
+#     subtitle = "5 variables, by region",
+#     theme = theme(plot.title = element_text(size = 16))
+#   )
+
+```
+
+\newpage
+
+# Compare 2017-19 election swing coefficients with those of the previous swing on one plot
+
+-   The most obvious difference is that a greater presence of younger adults in a constituency in 2015-17 led to a swing towards Labour, whereas by 2017-19, such a phenomenon led to a swing towards the Conservatives.
+
+-   The effect of the other covariates remained unchanged in terms of direction.
+
+## Fixed effects
+
+```{r}
+
+fe_mm1719$swingto <- case_when(fe_mm1719$value>0 ~ "Conservative",
+                               TRUE ~ "Labour")
+
+fe_mm151719 <- rbind(fe_mm1719,fe_mm1517) |> 
+  mutate(period = c(rep("2017-19",5),
+                    rep("2015-17",5)))
+
+ggplot() + 
+  geom_errorbar(data=fe_mm151719, aes(x=value, 
+                                    y=term,
+                                    xmin=lower_2.5,
+                                    xmax=upper_97.5,
+                                    group=period,
+                                    colour=period,
+                                    fill=period),
+                lwd=0.5,
+                position = position_dodge(width=0.6)) + 
+  geom_point(data=fe_mm151719, aes(x=value, 
+                                    y=term,
+                                    xmin=lower_2.5,
+                                    xmax=upper_97.5,
+                                    group=period,
+                                    colour=period,
+                                    fill=period,
+                                   size=period),
+             shape=21, 
+             position = position_dodge(width=0.6)) + 
+  scale_size_manual(values = c(2,3)) + 
+  scale_colour_manual(values = c("saddlebrown","darkblue")) + 
+  scale_fill_manual(values = c("saddlebrown","darkblue")) +  
+  geom_vline(xintercept = 0, colour="red") + 
+  theme_bw() + 
+  guides(fill = guide_legend(override.aes = list(size = 4)),
+         colour="none",
+         size="none") +
+  labs(x="coefficient effect", 
+       y=NULL,
+       title = "Change in fixed effects",
+       subtitle = paste0("between 2017-19 and 2015-17"))
+
+```
+
+## Geographical region fixed effects
+
+```{r}
+
+p1_mm1719 <- ggplot(mm1719df_reg) + 
+  geom_sf(aes(fill=`fit.s.region.`), lwd=0.1) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
+  coord_sf(datum=NA) + 
+  geom_sf(data=regions, fill=NA) + 
+  coord_sf(datum=NA) + 
+  theme_bw() +
+  labs(fill = "geographic\neffect",
+       title = "Random neighbourhood effect",
+       subtitle = "2017-19")
+
+p1_mm1517 <- ggplot(mm1517df_reg) + 
+  geom_sf(aes(fill=`fit.s.region.`), lwd=0.1) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
+  coord_sf(datum=NA) + 
+  geom_sf(data=regions, fill=NA) + 
+  coord_sf(datum=NA) + 
+  theme_bw() +
+  labs(fill = "geographic\neffect",
+       title = "Random neighbourhood effect",
+       subtitle = "2015-17")
+
+ggarrange(p1_mm1719, p1_mm1517, common.legend = TRUE, legend = "right")
+
+```
+
+## Random effects by region
+
+```{r}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+re_mm151719 <- rbind(re_mm1719,re_mm1517) |> 
+  mutate(period = c(rep("2017-19",44),
+                    rep("2015-17",44)))
+
+# for colouring points on plot
+re_mm151719$swingto <- case_when(re_mm151719$value>0 ~ "Conservative",
+                               TRUE ~ "Labour")
+
+mm_plot_list151719 <- list()
+i=1
+for (var in levels(df_scaled$region)){
+  mmtemp <- re_mm151719[re_mm151719$group==levels(df_scaled$region)[i],]
+  mmtemp1 <- re_mm151719[re_mm151719$group==levels(df_scaled$region)[i],]
+  mm_plot_list151719[[i]] <- ggplot() + 
+    geom_errorbar(data=mmtemp1, aes(x=value, 
+                                    y=term,
+                                    xmin=lower_2.5,
+                                    xmax=upper_97.5,
+                                    group=period,
+                                    colour=period,
+                                    fill=period),
+                lwd=0.5,
+                position = position_dodge(width=0.6)) +
+    geom_point(data=mmtemp1, aes(x=value, 
+                                    y=term,
+                                    xmin=lower_2.5,
+                                    xmax=upper_97.5,
+                                    group=period,
+                                    colour=period,
+                                    fill=period,
+                                   size=period),
+             shape=21, 
+             position = position_dodge(width=0.6)) + 
+  scale_size_manual(values = c(2,3)) + 
+  scale_colour_manual(values = c("saddlebrown","darkblue")) + 
+  scale_fill_manual(values = c("saddlebrown","darkblue")) + 
+    geom_vline(xintercept = 0, colour="red") + 
+    theme_bw() + 
+    theme(plot.title =element_text(size=10, face='bold'),
+          plot.subtitle =element_text(size=8)) + 
+    labs(x="coefficient effect", 
+         y=NULL, 
+         title = levels(df_scaled$region)[i]) + 
+  guides(fill = "none",
+         colour="none",
+         size="none")
+  
+  i= i+1
+}
+
+```
+
+```{r, fig.width=10,fig.height=8}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+(plot_spacer()|plot_spacer()|mm_plot_list151719[[5]]|plot_spacer()) / 
+  (plot_spacer()|mm_plot_list151719[[4]]|mm_plot_list151719[[6]]|mm_plot_list151719[[11]]|plot_spacer()) / 
+  (mm_plot_list151719[[9]]|mm_plot_list151719[[10]]|mm_plot_list151719[[2]]|mm_plot_list151719[[1]]) /
+  (plot_spacer()|mm_plot_list151719[[8]]|mm_plot_list151719[[3]]|mm_plot_list151719[[7]]) +
+  plot_annotation(
+    title = "Random effects from mixed model",
+    subtitle = "Swing 2017-19 (with 2015-17 in green)",
+    theme = theme(plot.title = element_text(size = 16))
+  )
+
+```

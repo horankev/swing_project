@@ -1,0 +1,249 @@
+---
+title: "Organise data"
+author: "Kevin Horan"
+toc: true
+format:
+  html:
+    html-math-method: katex
+    code-tools: true
+    code-fold: true
+    self-contained: true
+execute:
+  warning: false
+editor: source
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, message=FALSE, warning = FALSE)
+```
+
+
+### Data
+
+```{r, echo=FALSE}
+#| code-fold: false
+packages <- c(
+  "MASS",
+  "tidyverse",
+  "sf",
+  "tmap",
+  "here",
+  "spdep", # areal data
+  "grid",
+  "GWmodel",
+  "kableExtra",
+  "cowplot",
+  "parlitools",
+  "corrplot",
+  "lme4",
+  "mgcv",
+  "ggfortify",
+  "ggforce", # has geom_circle
+  "gridExtra",
+  "car",
+  "rgeoda", # for LISA
+  "ggpubr",
+  "ggrepel",
+  "ggpointdensity",
+  "ggalt", # for geom_encircle
+  "ggsflabel" # has repel labels for sf
+  )
+
+
+# Install packages not yet installed
+installed_packages <- packages %in% rownames(installed.packages())
+if (any(installed_packages == FALSE)) {
+  install.packages(packages[!installed_packages])
+}
+
+# Packages loading
+invisible(lapply(packages, library, character.only = TRUE))
+
+tmap_mode("plot")
+rm(list=ls())
+```
+
+```{r, echo=FALSE}
+
+# avoid conflict with dplyr and MASS::select
+select <- dplyr::select
+
+```
+
+```{r, echo=FALSE}
+## Data
+
+### Sources
+
+#Import spatial data
+
+#UK constituency boundary polygons & UK constituency hexagons
+
+
+#| code-fold: false
+# this BUC version has ultra generalised (500m) polygons,
+# allowing for quick mapping
+# from: https://hub.arcgis.com/datasets/ons::westminster-parliamentary-constituencies-december-2021-uk-buc/explore?location=55.215744%2C-3.315966%2C6.71
+# click to download the geojson file
+
+uk <- st_read("/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/Westminster_Parliamentary_Constituencies_(December_2021)_UK_BUC.geojson",quiet = TRUE) |> 
+  st_set_crs(4326) |> 
+  st_make_valid() # ensure valid line overlaps etc
+
+# constituencies as hexagons
+hex <- west_hex_map
+
+```
+
+```{r, echo=FALSE}
+#Urban/rural categorisation of constituencies from House Of Commons Library
+
+
+#| code-fold: false
+# from: https://commonslibrary.parliament.uk/research-briefings/cbp-8322/
+# download: City & Town Classification of Parliamentary Constituencies - CSV data
+# at page: https://researchbriefings.files.parliament.uk/documents/CBP-8322/pcon-classification-csv.csv
+# saved on my computer as citytown
+
+# make extra column "rur_urb"
+# showing which urban/rural category has largest score for each constituency
+
+citytown <- read.csv("/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/citytown.csv") |>
+  mutate(classification = 
+           replace(classification, 
+                   classification == 
+                     "Village or Smaller","Village or smaller")) |>
+  select(-population) |>
+  pivot_wider(names_from = classification,
+              values_from = percent_of_constituency, values_fill = 0) |>
+  mutate(rur_urb = pmap(across(3:9), ~ names(c(...)[which.max(c(...))])),
+         rur_urb = factor(rur_urb, levels = c("Village or smaller",
+                                                "Small Town",
+                                                "Medium Town",
+                                                "Large Town",
+                                                "Other City",
+                                                "Core City (outside London)",
+                                                "Core City (London)")))
+```
+
+```{r, echo=FALSE}
+#Census and election data
+
+
+#| code-fold: false
+# files are in parlitools package
+
+elect2019 <- bes_2019
+elect2017 <- bes_2017
+elect2015 <- bes_2015
+
+census <- census_11
+```
+
+```{r, echo=FALSE}
+#To produce: `all_elections_census_hex`
+
+#| code-fold: false
+all_elections_census_hex <- left_join(elect2019,
+                           census |> 
+                             select(-c("ons_const_id", 
+                                       "constituency_name", 
+                                       "country", 
+                                       "region", 
+                                       "constituency_type")), 
+                           by = "pano") |>
+  left_join(elect2017 |> select(ons_const_id, 
+                                 ends_with("_17")), by = "ons_const_id") |> 
+  left_join(elect2015 |> select(ons_const_id, 
+                                 ends_with("_15")), by = "ons_const_id") |> 
+  left_join(elect2015 |> select(ons_const_id, ends_with("_10")), 
+            by = "ons_const_id") |> 
+  left_join(hex |> select(-"constituency_name"), #  no letter case confusion
+            by = c("ons_const_id"="gss_code")) |>
+  select(-contains(c("_ppc_","alliance","dup","uup","sf","sdlp"))) |> # # NI 
+  select(pano, everything()) |> # pano as col 1 to match 2017 & 2015 structures
+  rename_at(
+    vars(ends_with(".x")),
+    ~str_replace(., "\\..$","")
+  ) |> 
+  select_at(
+        vars(-ends_with(".y"))
+  ) |> 
+st_as_sf()
+
+```
+
+```{r, echo=FALSE}
+#To produce: `all_elections_census_polygons`
+
+
+#| code-fold: false
+all_elections_census_polygons <- all_elections_census_hex |> 
+  st_drop_geometry() |> 
+  left_join(uk, by = c("ons_const_id" = "PCON21CD")) |> 
+  st_as_sf()
+
+```
+
+```{r, echo=FALSE}
+### Variables
+
+# To produce: `df` and `df_hex` for different styles of mapping
+# 
+# Will use `df` to construct models
+# 
+# Restrict data to just England and Wales.
+# 
+# Rename and agglomerate variables to be used from the census info.
+# 
+# The measure of Conservative swing from Labour used here is the **Butler swing**, calculated as\
+# **((con_19 - con_17) - (lab_19 - lab_17)) / 2**
+# 
+
+#| code-fold: false
+df <- all_elections_census_polygons |> 
+  filter(country %in% c("England","Wales")) |> 
+  mutate(competed_con = factor(ifelse(is.na(con_19-con_17),"No","Yes")),
+         competed_lab = factor(ifelse(is.na(lab_19-lab_17),"No","Yes"))) |> 
+  filter(competed_con == "Yes",
+         competed_lab ==  "Yes") |> # constits where cons and lab competed in 19 and 17
+  mutate(con_winner_19 = ifelse(winner_19 == "Conservative", "Con19", "NotCon19"),
+         con_winner_17 = ifelse(winner_17 == "Conservative", "Con17", "NotCon17"),
+         con_flip_1917 = ifelse(winner_19 == "Conservative" & winner_17 != "Conservative", "ConFlip", "NoConFlip"),
+         con_flip_lab =  ifelse(winner_19 == "Conservative" & winner_17 == "Labour", "ConLabFlip", "NoConLabFlip"),
+         over65 = age_65_to_74 + age_75_to_84 + age_85_to_89 + age_90_plus,
+         low_qual = qual_none + qual_level_1,
+         deprived = deprived_2 + deprived_3 + deprived_4,
+         student = economically_inactive_student,
+         leave_EU = leave_hanretty,
+         density = population_density,
+         born_elsewhere = born_ireland + born_other_eu + 
+           born_other_pre_2004_eu + born_post_2004_eu + born_other,
+         density = population_density, 
+         con_change = con_19 - con_17, # difference in %
+         lab_change = lab_19 - lab_17,
+         con_swing = (con_change - lab_change)/2, # Butler swing
+         #con_swing = (con_19/(con_19 + lab_19)) - (con_17/(con_17 + lab_17)) # Steed swing
+) |> 
+  left_join(citytown |> select(-constituency_name), 
+            by = c("ons_const_id" = "constituency_code"))
+
+```
+
+
+```{r}
+
+# saveRDS(df, "/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/df.rds")
+
+```
+
+
+
+
+
+
+
+
+
+
+
