@@ -86,8 +86,7 @@ select <- dplyr::select
 # from: https://hub.arcgis.com/datasets/ons::westminster-parliamentary-constituencies-december-2021-uk-buc/explore?location=55.215744%2C-3.315966%2C6.71
 # click to download the geojson file
 
-uk <- st_read(here("data",
-  "Westminster_Parliamentary_Constituencies_(December_2021)_UK_BUC.geojson"),quiet = TRUE) |> 
+uk <- st_read("/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/Westminster_Parliamentary_Constituencies_(December_2021)_UK_BUC.geojson",quiet = TRUE) |> 
   st_set_crs(4326) |> 
   st_make_valid() # ensure valid line overlaps etc
 
@@ -109,7 +108,7 @@ hex <- west_hex_map
 # make extra column "rur_urb"
 # showing which urban/rural category has largest score for each constituency
 
-citytown <- read.csv(here::here("data","citytown.csv")) |>
+citytown <- read.csv("/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/citytown.csv") |>
   mutate(classification = 
            replace(classification, 
                    classification == 
@@ -234,7 +233,7 @@ df <- all_elections_census_polygons |>
 
 ```{r}
 
-saveRDS(df, here("data","df"))
+saveRDS(df, "/Users/kevinhoran/Library/CloudStorage/OneDrive-MaynoothUniversity/swing_project/data/df.rds")
 
 ```
 
