@@ -1472,7 +1472,7 @@ ggplot(mp, aes(x=x, y=wx)) + geom_point(shape=1) +
 
 \clearpage
 
-## Comparison of mixed and spatial mixed
+## Comparison of mixed and spatial mixed v1
 
 Using mixed: `mod_mixed_lmer`
 
@@ -1539,3 +1539,129 @@ ggplot(two_mods, aes(x=value, y=group,
   guides(colour="none")
 
 ```
+
+## Comparison of mixed and spatial mixed v2
+
+Using mixed: `mod_mixed_lmer`
+
+Using spatial: `mod_mixed_gam_v2`
+
+```{r, fig.width=12,fig.height=8}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+mod_mixed_lmer_rand <- broom.mixed::tidy(mod_mixed_lmer, effects="ran_vals", conf.int=TRUE) |> 
+  filter(term != "(Intercept)") |> 
+  select(-effect,-group) |> 
+  rename(effect = term,
+         lower_2.5 = conf.low,
+         upper_97.5 = conf.high,
+         value = estimate,
+         group = level,
+         se = std.error)
+mod_mixed_lmer_rand$model = rep("mod_mixed_lmer",nrow(mod_mixed_lmer_rand))
+
+mod_mixed_lmer_rand$effect <- fct_reorder(mod_mixed_lmer_rand$effect, mod_mixed_lmer_rand$value)
+mod_mixed_lmer_rand$swingto <- case_when(mod_mixed_lmer_rand$value>0 ~ "Conservative",
+                              TRUE ~ "Labour")
+
+# bring back gam_v2 dataframes from before...
+temp <- mod_mixed_gam_v2_df_reg[,c(1,6:10,15:19)] |> 
+  st_drop_geometry()
+temp1 <- temp[,1:6] |> 
+  pivot_longer(2:6, 
+               names_to = "variable",
+               values_to = "effect")
+temp2 <- temp[,c(1,7:11)] |> 
+  pivot_longer(2:6, 
+               names_to = "variable",
+               values_to = "std_error")
+temp3 <- cbind(temp1,temp2[,3])
+
+temp3$variable <- str_remove(temp3$variable, "s.")
+
+temp3$conf_lower <- temp3$effect - qnorm(0.975)*temp3$std_error
+temp3$conf_upper <- temp3$effect + qnorm(0.975)*temp3$std_error
+
+temp3$variable <- str_remove(temp3$variable, "fit.")
+
+temp4 <- temp3 |> 
+  rename(group = region,
+         value = effect,
+         effect = variable,
+         se = std_error,
+         lower_2.5 = conf_lower,
+         upper_97.5 = conf_upper) |> 
+  filter(effect!="region.")
+temp4$model <- rep("mod_mixed_gam_v2",nrow(temp4))
+temp4$swingto <- case_when(temp4$value>0 ~ "Conservative",
+                              TRUE ~ "Labour")
+temp4$effect <- str_remove(temp4$effect, "region..")
+
+two_mods2 <- rbind(mod_mixed_lmer_rand,temp4)
+
+ggplot(two_mods2, aes(x=value, y=group,
+                     xmin=lower_2.5,
+                     xmax=upper_97.5, 
+                     fill=model,
+                     colour=model,
+                     group=model)) +
+  geom_errorbar(lwd=0.8,position = position_dodge(width=0.8)) + 
+  geom_point(shape=21, size=1.5,position = position_dodge(width=0.8)) + 
+  geom_vline(xintercept = 0, colour="red") + 
+  # scale_colour_manual(values = c("darkblue","#DE8E89")) + 
+  # scale_fill_manual(values = c("darkblue","#DE8E89")) + 
+  scale_colour_manual(values = c("darkblue","saddlebrown")) + 
+  scale_fill_manual(values = c("darkblue","saddlebrown")) + 
+  facet_grid(~effect) + 
+  theme_bw() + 
+  theme(legend.position = "bottom") + 
+  guides(fill = guide_legend(override.aes = list(size = 4))) + 
+  labs(x="coef effect", 
+       y=NULL, 
+       title = "Comparison of random effects",
+       subtitle = "mod_mixed_lmer and mod_mixed_gam_v2") + 
+  guides(colour="none")
+
+```
+
+
+The three models together:
+
+```{r, fig.width=12,fig.height=8}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+three_mods <- rbind(two_mods,temp4)
+
+ggplot(three_mods, aes(x=value, y=group,
+                     xmin=lower_2.5,
+                     xmax=upper_97.5, 
+                     fill=model,
+                     colour=model,
+                     group=model)) +
+  geom_errorbar(lwd=0.8,position = position_dodge(width=0.8)) + 
+  geom_point(shape=21, size=1.5,position = position_dodge(width=0.8)) + 
+  geom_vline(xintercept = 0, colour="red") + 
+  # scale_colour_manual(values = c("darkblue","#DE8E89")) + 
+  # scale_fill_manual(values = c("darkblue","#DE8E89")) + 
+  scale_colour_manual(values = c("darkgreen","darkblue","saddlebrown")) + 
+  scale_fill_manual(values = c("darkgreen","darkblue","saddlebrown")) + 
+  facet_grid(~effect) + 
+  theme_bw() + 
+  theme(legend.position = "bottom") + 
+  guides(fill = guide_legend(override.aes = list(size = 4))) + 
+  labs(x="coef effect", 
+       y=NULL, 
+       title = "Comparison of random effects",
+       subtitle = "mod_mixed_lmer and mod_mixed_gam_v2") + 
+  guides(colour="none")
+
+
+
+```
+
