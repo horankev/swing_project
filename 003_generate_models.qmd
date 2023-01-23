@@ -1747,7 +1747,7 @@ gam_lrt_df <- data.frame(
     "-",
     "-",
     "-"
-    )
+  )
 )
 
 kbl(gam_lrt_df, caption="GAM models: Likelihood ratio test p-values") |> 
@@ -1760,7 +1760,7 @@ kbl(gam_lrt_df, caption="GAM models: Likelihood ratio test p-values") |>
 
 
 
-Spatial autocorrelation is substantially reduced by the mixed model, without adding any explicitly spatial component.
+## Moran's Plot for nlme_CorExp
 
 ```{r, fig.width=12, fig.height=4}
 #| code-fold: false
@@ -1798,7 +1798,7 @@ ggplot(mp, aes(x=x, y=wx)) + geom_point(shape=1) +
 
 ```
 
-
+## Separate Moran's plots by region for nlme_CorExp
 
 ```{r, fig.width=12, fig.height=12}
 #| code-fold: false
@@ -1807,11 +1807,22 @@ ggplot(mp, aes(x=x, y=wx)) + geom_point(shape=1) +
 #| echo: false
 #| fig-cap: "Moran's scatterplot for residuals of mixed model, with fills by region for high leverage constituencies"
 
+temp_mod_mixed_nlme_corExp <- df |> 
+  select(con_swing,constituency_name,constituency_name) |> 
+  mutate(resids = as.numeric(resid(mod_nlme_corExp)))
+
+df_nb <- poly2nb(df)
+df_wts <- nb2listw(df_nb, zero.policy = TRUE)
+
+mp <- moran.plot(temp_mod_mixed_nlme_corExp$resids, df_wts, zero.policy = TRUE, labels = temp_mod_mixed_nlme_corExp$constituency_name, plot=FALSE) |> 
+  mutate(region=df$region)
+
 moranplot_list <- list()
 
 for (i in 1:nrow(regions)){
   mp_reg <- mp |> filter(region==regions$region[i])
   temp_reg <- lm(wx~x,mp_reg)
+  summary_temp_reg <- summary(temp_reg)
   
   xname <- attr(mp_reg, "xname")
   moranplot_list[[i]] <- ggplot(mp_reg, aes(x=x, y=wx)) + geom_point(shape=1) + 
@@ -1827,7 +1838,9 @@ for (i in 1:nrow(regions)){
     ylab(paste0("Spatially lagged Residuals")) +
     scale_fill_brewer(palette = "Set3") + 
     labs(title = regions$region[i],
-         subtitle = paste0("Slope = ",round(temp_reg$coefficients[2],2))) + 
+         subtitle = paste0(
+           "Slope = ",round(summary_temp_reg$coefficients[2,1],2),
+           " , p-value = ",round(summary_temp_reg$coefficients[2,4],2))) + 
     theme(legend.position = "bottom")
 }
 
@@ -1837,7 +1850,6 @@ ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
           moranplot_list[[10]],moranplot_list[[11]],nrow=3,ncol = 4)
 
 ```
-
 
 
 
