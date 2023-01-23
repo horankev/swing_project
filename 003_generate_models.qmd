@@ -700,7 +700,8 @@ ggplot(mp, aes(x=x, y=wx)) + geom_point(shape=1) +
   xlab("Residuals") + 
   ylab(paste0("Spatially lagged Residuals")) +
   scale_fill_brewer(palette = "Set3") + 
-  labs(subtitle = paste0("Slope = ",round(temp_reg$coefficients[2],2))) + 
+  labs(title = "mod_lm",
+       subtitle = paste0("Slope = ",round(temp_reg$coefficients[2],2))) + 
   theme(legend.position = "bottom")
 
 ```
@@ -861,7 +862,8 @@ ggplot(mp, aes(x=x, y=wx)) + geom_point(shape=1) +
   xlab("Residuals") + 
   ylab(paste0("Spatially lagged Residuals")) +
   scale_fill_brewer(palette = "Set3") + 
-  labs(subtitle = paste0("Slope = ",round(temp_reg$coefficients[2],2))) + 
+  labs(title = "mod_lm_mrf",
+       subtitle = paste0("Slope = ",round(temp_reg$coefficients[2],2))) + 
   theme(legend.position = "bottom")
 
 ```
@@ -1026,7 +1028,8 @@ ggplot(mp, aes(x=x, y=wx)) + geom_point(shape=1) +
   xlab("Residuals") + 
   ylab(paste0("Spatially lagged Residuals")) +
   scale_fill_brewer(palette = "Set3") + 
-  labs(subtitle = paste0("Slope = ",round(temp_reg$coefficients[2],2))) + 
+  labs(title = "mod_mixed_lmer",
+       subtitle = paste0("Slope = ",round(temp_reg$coefficients[2],2))) + 
   theme(legend.position = "bottom")
 
 ```
@@ -1257,7 +1260,8 @@ ggplot(mp, aes(x=x, y=wx)) + geom_point(shape=1) +
   xlab("Residuals") + 
   ylab(paste0("Spatially lagged Residuals")) +
   scale_fill_brewer(palette = "Set3") + 
-  labs(subtitle = paste0("Slope = ",round(temp_reg$coefficients[2],2))) + 
+  labs(title = "mod_mixed_gam_v1",
+       subtitle = paste0("Slope = ",round(temp_reg$coefficients[2],2))) + 
   theme(legend.position = "bottom")
 
 ```
@@ -1465,7 +1469,8 @@ ggplot(mp, aes(x=x, y=wx)) + geom_point(shape=1) +
   xlab("Residuals") + 
   ylab(paste0("Spatially lagged Residuals")) +
   scale_fill_brewer(palette = "Set3") + 
-  labs(subtitle = paste0("Slope = ",round(temp_reg$coefficients[2],2))) + 
+  labs(title = "mod_mixed_gam_v2",
+       subtitle = paste0("Slope = ",round(temp_reg$coefficients[2],2))) + 
   theme(legend.position = "bottom")
 
 ```
@@ -1755,7 +1760,83 @@ kbl(gam_lrt_df, caption="GAM models: Likelihood ratio test p-values") |>
 
 
 
+Spatial autocorrelation is substantially reduced by the mixed model, without adding any explicitly spatial component.
 
+```{r, fig.width=12, fig.height=4}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+#| fig-cap: "Moran's scatterplot for residuals of mixed model, with fills by region for high leverage constituencies"
+
+temp_mod_mixed_nlme <- df |> 
+  select(con_swing,constituency_name,constituency_name) |> 
+  mutate(resids = as.numeric(resid(mod_nlme_corExp)))
+
+df_nb <- poly2nb(df)
+df_wts <- nb2listw(df_nb, zero.policy = TRUE)
+
+mp <- moran.plot(temp_mod_mixed_nlme$resids, df_wts, zero.policy = TRUE, labels = temp_mod_mixed_nlme$constituency_name, plot=FALSE) |> 
+  mutate(region=df$region)
+
+temp_reg <- lm(wx~x,mp)
+
+xname <- attr(mp, "xname")
+ggplot(mp, aes(x=x, y=wx)) + geom_point(shape=1) + 
+  geom_smooth(formula=y ~ x, method="lm") + 
+  geom_hline(yintercept=mean(mp$wx), lty=2) + 
+  geom_vline(xintercept=mean(mp$x), lty=2) + theme_minimal() + 
+  geom_point(data=mp[mp$is_inf,], aes(x=x, y=wx), shape=9) +
+  geom_label(data=mp[mp$is_inf,], aes(x=x, y=wx, label=labels, fill=region), size=1) +
+  guides(fill = "none") +
+  xlab("Residuals") + 
+  ylab(paste0("Spatially lagged Residuals")) +
+  scale_fill_brewer(palette = "Set3") + 
+  labs(title = "mod_nlme_corExp",
+       subtitle = paste0("Slope = ",round(temp_reg$coefficients[2],2))) + 
+  theme(legend.position = "bottom")
+
+```
+
+
+
+```{r, fig.width=12, fig.height=12}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+#| fig-cap: "Moran's scatterplot for residuals of mixed model, with fills by region for high leverage constituencies"
+
+moranplot_list <- list()
+
+for (i in 1:nrow(regions)){
+  mp_reg <- mp |> filter(region==regions$region[i])
+  temp_reg <- lm(wx~x,mp_reg)
+  
+  xname <- attr(mp_reg, "xname")
+  moranplot_list[[i]] <- ggplot(mp_reg, aes(x=x, y=wx)) + geom_point(shape=1) + 
+    geom_smooth(formula=y ~ x, method="lm") + 
+    geom_hline(yintercept=mean(mp_reg$wx), lty=2) + 
+    geom_vline(xintercept=mean(mp_reg$x), lty=2) + theme_minimal() + 
+    geom_point(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx), shape=9) +
+    geom_label(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx, label=labels, fill=region), size=1) +
+    guides(fill = "none") +
+    xlim(-5,5) + 
+    ylim(-5,5) +
+    xlab("Residuals") + 
+    ylab(paste0("Spatially lagged Residuals")) +
+    scale_fill_brewer(palette = "Set3") + 
+    labs(title = regions$region[i],
+         subtitle = paste0("Slope = ",round(temp_reg$coefficients[2],2))) + 
+    theme(legend.position = "bottom")
+}
+
+ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
+          moranplot_list[[4]],moranplot_list[[5]],moranplot_list[[6]],
+          moranplot_list[[7]],moranplot_list[[8]],moranplot_list[[9]],
+          moranplot_list[[10]],moranplot_list[[11]],nrow=3,ncol = 4)
+
+```
 
 
 
