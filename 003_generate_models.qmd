@@ -1665,3 +1665,113 @@ ggplot(three_mods, aes(x=value, y=group,
 
 ```
 
+## Do we need to model the spatial relationship between the regions for this dataset?
+
+```{r}
+
+###
+
+anova(mod_lm,mod_lm_mrf)
+
+lm_mrf_lrt_df <- anova(mod_lm,mod_lm_mrf) |> 
+  mutate(model = c("mod_lm","mod_lm_mrf")) |> 
+  select(model, everything())
+
+kbl(lm_mrf_lrt_df, caption="LM/MRF models: Likelihood ratio test p-values") |> 
+  kable_classic(full_width = F, html_font = "Cambria")
+
+###
+
+# express mod_lm as a gls from nlme package for anova comparison
+
+mod_gls <- gls(con_swing ~
+               degree_educated +
+               younger_adults +
+               health_not_good +
+               white,
+             data=df_scaled_sf)
+
+gls_lrt_df <- anova(mod_gls,mod_mixed_nlme)[,-1] # which is the same model as mod_mix_lmer and mod_mixed_gam
+
+kbl(gls_lrt_df, caption="GLS models: Likelihood ratio test p-values") |> 
+  kable_classic(full_width = F, html_font = "Cambria")
+
+###
+
+nlme_list <- list()
+
+nlme_list[[1]] <- mod_mixed_nlme
+nlme_list[[2]] <- mod_nlme_corExp
+nlme_list[[3]] <- mod_nlme_corLin
+nlme_list[[4]] <- mod_nlme_corGaus
+
+nlme_lrt_df <- data.frame(
+  model = c("mod_mixed_nlme","mod_nlme_corExp","mod_nlme_corLin","mod_nlme_corGaus"),
+  mod_mixed_nlme = c(
+    "-",
+    round((anova(nlme_list[[1]],nlme_list[[2]]))$`p-value`[2],3),
+    round((anova(nlme_list[[1]],nlme_list[[3]]))$`p-value`[2],3),
+    round((anova(nlme_list[[1]],nlme_list[[4]]))$`p-value`[2],3)
+  )
+    )
+
+kbl(nlme_lrt_df, caption="NLME models: Likelihood ratio test p-values") |> 
+  kable_classic(full_width = F, html_font = "Cambria")
+
+###
+
+gam_list <- list()
+
+gam_list[[1]] <- mod_mixed_gam
+gam_list[[2]] <- mod_mixed_gam_v1
+gam_list[[3]] <- mod_mixed_gam_v2
+
+gam_lrt_df <- data.frame(
+  model = c("mod_mixed_gam","mod_mixed_gam_v1","mod_mixed_gam_v2"),
+  mod_mixed_gam = c(
+    "-",
+    round((anova(gam_list[[1]],gam_list[[2]],test = "Chisq"))$`Pr(>Chi)`[2],3),
+    round((anova(gam_list[[1]],gam_list[[3]],test = "Chisq"))$`Pr(>Chi)`[2],3)
+  ),
+  mod_mixed_gam_v1 = c(
+    "-",
+    "-",
+    round((anova(gam_list[[2]],gam_list[[3]],test = "Chisq"))$`Pr(>Chi)`[2],3)
+  ),
+  mod_mixed_gam_v2 = c(
+    "-",
+    "-",
+    "-"
+    )
+)
+
+kbl(gam_lrt_df, caption="GAM models: Likelihood ratio test p-values") |> 
+  kable_classic(full_width = F, html_font = "Cambria")
+
+###
+
+
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
