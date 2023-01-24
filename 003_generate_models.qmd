@@ -1671,7 +1671,19 @@ ggplot(three_mods, aes(x=value, y=group,
 
 ```
 
-## Do we need to model the spatial relationship between the regions for this dataset?
+## Likelihood ratio tests
+
+LR tests:
+ 
+If I am interpreting correctly, the likelihood ratio tests seem to show that:
+ 
+Mixed models are better than simple linear models (as expected): comparing mod_lm (re-expressed as mod_gls), to mod_mixed_nlme.
+ 
+The model which also allows spatial relationships within regions (mod_nlme_corExp) is better than mod_mixed_nlme (and I suppose the other two identical but differently expressed models lmer and gam).
+ 
+The mod_mixed_gam_v1 with contiguity relationship between regions is also better than the three basic mixed model version.
+ 
+However, I’m not sure if I can perform a LRT between mod_nlme_corExp and mod_mixed_gam_v1 or mod_mixed_gam_v2 to decide which is better.
 
 ```{r}
 
@@ -2189,6 +2201,12 @@ ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
 
 
 ### Together in one image
+
+Moran’s I (spatial autocorrelation of residuals):
+ 
+mod_nlme_corExp does not remove as much of this as the models without this within-region feature.
+ 
+When looking at the moran’s I plots constructed by region for each model, mod_nlme_corExp leaves significant autocorrelation in four regions, while the mixed models and v1 and v2 only leave it in three regions.
 
 ```{r, fig.width=10, fig.height=6}
 #| code-fold: false
