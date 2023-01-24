@@ -1799,7 +1799,9 @@ ggplot(mp, aes(x=x, y=wx)) + geom_point(shape=1) +
 
 ```
 
-## Individual Moran's plots of residuals by region for different models
+## Tracking the removal of spatial autocorrelation with different models
+
+Individual Moran's plots of residuals by region for different models
 
 ### mod_lm
 
@@ -1863,6 +1865,136 @@ ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
           moranplot_list[[10]],moranplot_list[[11]],nrow=3,ncol = 4)
 
 ```
+
+
+### mod_lm_mrf
+
+```{r, fig.width=12, fig.height=12}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+#| fig-cap: "Moran's scatterplot for residuals of mixed model, with fills by region for high leverage constituencies"
+
+temp_mod_lm_mrf <- df |> 
+  select(con_swing,constituency_name,constituency_name) |> 
+  mutate(resids = as.numeric(resid(mod_lm_mrf)))
+
+df_nb <- poly2nb(df)
+df_wts <- nb2listw(df_nb, zero.policy = TRUE)
+
+mp <- moran.plot(temp_mod_lm_mrf$resids, df_wts, zero.policy = TRUE, labels = temp_mod_lm_mrf$constituency_name, plot=FALSE) |> 
+  mutate(region=df$region)
+
+moranplot_list <- list()
+
+tab_mod_lm_mrf <- data.frame(
+  region = regions$region,
+  slope = rep(NA,nrow(regions)),
+  pval = rep(NA,nrow(regions)),
+  model = rep("mod_lm_mrf",nrow(regions))
+)
+
+for (i in 1:nrow(regions)){
+  mp_reg <- mp |> filter(region==regions$region[i])
+  temp_reg <- lm(wx~x,mp_reg)
+  summary_temp_reg <- summary(temp_reg)
+  
+  xname <- attr(mp_reg, "xname")
+  moranplot_list[[i]] <- ggplot(mp_reg, aes(x=x, y=wx)) + geom_point(shape=1) + 
+    geom_smooth(formula=y ~ x, method="lm") + 
+    geom_hline(yintercept=mean(mp_reg$wx), lty=2) + 
+    geom_vline(xintercept=mean(mp_reg$x), lty=2) + theme_minimal() + 
+    #geom_point(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx), shape=9) +
+    #geom_label(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx, label=labels, fill=region), size=1) +
+    guides(fill = "none") +
+    xlim(-5,5) + 
+    ylim(-5,5) +
+    xlab("Residuals") + 
+    ylab(paste0("Spatially lagged Residuals")) +
+    scale_fill_brewer(palette = "Set3") + 
+    labs(title = regions$region[i],
+         subtitle = paste0(
+           "Slope = ",round(summary_temp_reg$coefficients[2,1],2),
+           " , p-value = ",round(summary_temp_reg$coefficients[2,4],2))) + 
+    theme(legend.position = "bottom")
+  
+  tab_mod_lm_mrf$slope[i] <- round(summary_temp_reg$coefficients[2,1],2)
+  tab_mod_lm_mrf$pval[i] <- round(summary_temp_reg$coefficients[2,4],2)
+}
+
+ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
+          moranplot_list[[4]],moranplot_list[[5]],moranplot_list[[6]],
+          moranplot_list[[7]],moranplot_list[[8]],moranplot_list[[9]],
+          moranplot_list[[10]],moranplot_list[[11]],nrow=3,ncol = 4)
+
+```
+
+
+
+### nlme_CorExp
+
+```{r, fig.width=12, fig.height=12}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+#| fig-cap: "Moran's scatterplot for residuals of mixed model, with fills by region for high leverage constituencies"
+
+temp_mod_mixed_nlme_corExp <- df |> 
+  select(con_swing,constituency_name,constituency_name) |> 
+  mutate(resids = as.numeric(resid(mod_nlme_corExp)))
+
+df_nb <- poly2nb(df)
+df_wts <- nb2listw(df_nb, zero.policy = TRUE)
+
+mp <- moran.plot(temp_mod_mixed_nlme_corExp$resids, df_wts, zero.policy = TRUE, labels = temp_mod_mixed_nlme_corExp$constituency_name, plot=FALSE) |> 
+  mutate(region=df$region)
+
+moranplot_list <- list()
+
+tab_mod_mixed_nlme_corExp <- data.frame(
+  region = regions$region,
+  slope = rep(NA,nrow(regions)),
+  pval = rep(NA,nrow(regions)),
+  model = rep("mod_mixed_nlme_corExp",nrow(regions))
+)
+
+for (i in 1:nrow(regions)){
+  mp_reg <- mp |> filter(region==regions$region[i])
+  temp_reg <- lm(wx~x,mp_reg)
+  summary_temp_reg <- summary(temp_reg)
+  
+  xname <- attr(mp_reg, "xname")
+  moranplot_list[[i]] <- ggplot(mp_reg, aes(x=x, y=wx)) + geom_point(shape=1) + 
+    geom_smooth(formula=y ~ x, method="lm") + 
+    geom_hline(yintercept=mean(mp_reg$wx), lty=2) + 
+    geom_vline(xintercept=mean(mp_reg$x), lty=2) + theme_minimal() + 
+    #geom_point(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx), shape=9) +
+    #geom_label(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx, label=labels, fill=region), size=1) +
+    guides(fill = "none") +
+    xlim(-5,5) + 
+    ylim(-5,5) +
+    xlab("Residuals") + 
+    ylab(paste0("Spatially lagged Residuals")) +
+    scale_fill_brewer(palette = "Set3") + 
+    labs(title = regions$region[i],
+         subtitle = paste0(
+           "Slope = ",round(summary_temp_reg$coefficients[2,1],2),
+           " , p-value = ",round(summary_temp_reg$coefficients[2,4],2))) + 
+    theme(legend.position = "bottom")
+  
+  tab_mod_mixed_nlme_corExp$slope[i] <- round(summary_temp_reg$coefficients[2,1],2)
+  tab_mod_mixed_nlme_corExp$pval[i] <- round(summary_temp_reg$coefficients[2,4],2)
+}
+
+ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
+          moranplot_list[[4]],moranplot_list[[5]],moranplot_list[[6]],
+          moranplot_list[[7]],moranplot_list[[8]],moranplot_list[[9]],
+          moranplot_list[[10]],moranplot_list[[11]],nrow=3,ncol = 4)
+
+```
+
 
 
 ### mod_mixed_lmer
@@ -1929,7 +2061,7 @@ ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
 ```
 
 
-### nlme_CorExp
+### mod_mixed_gam_v1
 
 ```{r, fig.width=12, fig.height=12}
 #| code-fold: false
@@ -1938,23 +2070,23 @@ ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
 #| echo: false
 #| fig-cap: "Moran's scatterplot for residuals of mixed model, with fills by region for high leverage constituencies"
 
-temp_mod_mixed_nlme_corExp <- df |> 
+temp_mod_mixed_gam_v1 <- df |> 
   select(con_swing,constituency_name,constituency_name) |> 
-  mutate(resids = as.numeric(resid(mod_nlme_corExp)))
+  mutate(resids = as.numeric(resid(mod_mixed_gam_v1)))
 
 df_nb <- poly2nb(df)
 df_wts <- nb2listw(df_nb, zero.policy = TRUE)
 
-mp <- moran.plot(temp_mod_mixed_nlme_corExp$resids, df_wts, zero.policy = TRUE, labels = temp_mod_mixed_nlme_corExp$constituency_name, plot=FALSE) |> 
+mp <- moran.plot(temp_mod_mixed_gam_v1$resids, df_wts, zero.policy = TRUE, labels = temp_mod_mixed_gam_v1$constituency_name, plot=FALSE) |> 
   mutate(region=df$region)
 
 moranplot_list <- list()
 
-tab_mod_mixed_nlme_corExp <- data.frame(
+tab_mod_mixed_gam_v1 <- data.frame(
   region = regions$region,
   slope = rep(NA,nrow(regions)),
   pval = rep(NA,nrow(regions)),
-  model = rep("mod_mixed_nlme_corExp",nrow(regions))
+  model = rep("mod_mixed_gam_v1",nrow(regions))
 )
 
 for (i in 1:nrow(regions)){
@@ -1963,7 +2095,8 @@ for (i in 1:nrow(regions)){
   summary_temp_reg <- summary(temp_reg)
   
   xname <- attr(mp_reg, "xname")
-  moranplot_list[[i]] <- ggplot(mp_reg, aes(x=x, y=wx)) + geom_point(shape=1) + 
+  moranplot_list[[i]] <- ggplot(mp_reg, aes(x=x, y=wx)) + 
+    geom_point(shape=1) + 
     geom_smooth(formula=y ~ x, method="lm") + 
     geom_hline(yintercept=mean(mp_reg$wx), lty=2) + 
     geom_vline(xintercept=mean(mp_reg$x), lty=2) + theme_minimal() + 
@@ -1981,8 +2114,8 @@ for (i in 1:nrow(regions)){
            " , p-value = ",round(summary_temp_reg$coefficients[2,4],2))) + 
     theme(legend.position = "bottom")
   
-  tab_mod_mixed_nlme_corExp$slope[i] <- round(summary_temp_reg$coefficients[2,1],2)
-  tab_mod_mixed_nlme_corExp$pval[i] <- round(summary_temp_reg$coefficients[2,4],2)
+  tab_mod_mixed_gam_v1$slope[i] <- round(summary_temp_reg$coefficients[2,1],2)
+  tab_mod_mixed_gam_v1$pval[i] <- round(summary_temp_reg$coefficients[2,4],2)
 }
 
 ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
@@ -2058,7 +2191,7 @@ ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
 ```
 
 
-
+### Together in one image
 
 ```{r, fig.width=10, fig.height=6}
 #| code-fold: false
@@ -2068,23 +2201,27 @@ ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
 #| fig-cap: "Moran's scatterplot for residuals of mixed model, with fills by region for high leverage constituencies"
 
 moran_tab <- rbind(tab_mod_lm,
+                   tab_mod_lm_mrf,
                    tab_mod_mixed_nlme_corExp,
                    tab_mod_mixed_lmer,
+                   tab_mod_mixed_gam_v1,
                    tab_mod_mixed_gam_v2
 ) |> 
   mutate(sig_slope = case_when(pval <= 0.05 ~ slope,
                                TRUE ~ 0),
          model = factor(model,levels = c("mod_lm",
-                                   "mod_mixed_nlme_corExp",
-                                   "mod_mixed_lmer",
-                                   "mod_mixed_gam_v2")))
+                                         "mod_lm_mrf",
+                                         "mod_mixed_nlme_corExp",
+                                         "mod_mixed_lmer",
+                                         "mod_mixed_gam_v1",
+                                         "mod_mixed_gam_v2")))
 
 ggplot(moran_tab) + 
   geom_abline(aes(intercept = 0, 
                   slope = sig_slope,
                   group = model,
                   colour = region),
-              size=0.75) + 
+              size=0.3) + 
   scale_color_paletteer_d(palette = "ggthemes::stata_s1color") + 
   geom_hline(yintercept = 0, size=1) + 
   geom_vline(xintercept = 0, size=1) + 
