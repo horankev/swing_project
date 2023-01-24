@@ -1677,8 +1677,6 @@ ggplot(three_mods, aes(x=value, y=group,
 
 ###
 
-anova(mod_lm,mod_lm_mrf)
-
 lm_mrf_lrt_df <- anova(mod_lm,mod_lm_mrf) |> 
   mutate(model = c("mod_lm","mod_lm_mrf")) |> 
   select(model, everything())
@@ -1755,7 +1753,6 @@ kbl(gam_lrt_df, caption="GAM models: Likelihood ratio test p-values") |>
   kable_classic(full_width = F, html_font = "Cambria")
 
 ###
-
 
 ```
 
@@ -1932,7 +1929,7 @@ ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
 
 
 
-### nlme_CorExp
+### nlme_corExp
 
 ```{r, fig.width=12, fig.height=12}
 #| code-fold: false
