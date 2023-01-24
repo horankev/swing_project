@@ -58,6 +58,7 @@ packages <- c(
   "broom",
   "patchwork",
   "nlme",
+  "paletteer", # easy access to many palettes (eg >10 discrete colours...)
   "broom.mixed", # extract tidy output
   "merTools", # with plot functions
   "DiagrammeR", # mermaid
@@ -1821,6 +1822,13 @@ mp <- moran.plot(temp_mod_lm$resids, df_wts, zero.policy = TRUE, labels = temp_m
 
 moranplot_list <- list()
 
+tab_mod_lm <- data.frame(
+  region = regions$region,
+  slope = rep(NA,nrow(regions)),
+  pval = rep(NA,nrow(regions)),
+  model = rep("mod_lm",nrow(regions))
+)
+
 for (i in 1:nrow(regions)){
   mp_reg <- mp |> filter(region==regions$region[i])
   temp_reg <- lm(wx~x,mp_reg)
@@ -1831,8 +1839,8 @@ for (i in 1:nrow(regions)){
     geom_smooth(formula=y ~ x, method="lm") + 
     geom_hline(yintercept=mean(mp_reg$wx), lty=2) + 
     geom_vline(xintercept=mean(mp_reg$x), lty=2) + theme_minimal() + 
-    geom_point(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx), shape=9) +
-    geom_label(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx, label=labels, fill=region), size=1) +
+    #geom_point(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx), shape=9) +
+    #geom_label(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx, label=labels, fill=region), size=1) +
     guides(fill = "none") +
     xlim(-5,5) + 
     ylim(-5,5) +
@@ -1844,6 +1852,9 @@ for (i in 1:nrow(regions)){
            "Slope = ",round(summary_temp_reg$coefficients[2,1],2),
            " , p-value = ",round(summary_temp_reg$coefficients[2,4],2))) + 
     theme(legend.position = "bottom")
+  
+  tab_mod_lm$slope[i] <- round(summary_temp_reg$coefficients[2,1],2)
+  tab_mod_lm$pval[i] <- round(summary_temp_reg$coefficients[2,4],2)
 }
 
 ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
@@ -1875,6 +1886,13 @@ mp <- moran.plot(temp_mod_mixed_lmer$resids, df_wts, zero.policy = TRUE, labels 
 
 moranplot_list <- list()
 
+tab_mod_mixed_lmer <- data.frame(
+  region = regions$region,
+  slope = rep(NA,nrow(regions)),
+  pval = rep(NA,nrow(regions)),
+  model = rep("mod_mixed_lmer",nrow(regions))
+)
+
 for (i in 1:nrow(regions)){
   mp_reg <- mp |> filter(region==regions$region[i])
   temp_reg <- lm(wx~x,mp_reg)
@@ -1885,8 +1903,8 @@ for (i in 1:nrow(regions)){
     geom_smooth(formula=y ~ x, method="lm") + 
     geom_hline(yintercept=mean(mp_reg$wx), lty=2) + 
     geom_vline(xintercept=mean(mp_reg$x), lty=2) + theme_minimal() + 
-    geom_point(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx), shape=9) +
-    geom_label(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx, label=labels, fill=region), size=1) +
+    #geom_point(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx), shape=9) +
+    #geom_label(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx, label=labels, fill=region), size=1) +
     guides(fill = "none") +
     xlim(-5,5) + 
     ylim(-5,5) +
@@ -1898,6 +1916,9 @@ for (i in 1:nrow(regions)){
            "Slope = ",round(summary_temp_reg$coefficients[2,1],2),
            " , p-value = ",round(summary_temp_reg$coefficients[2,4],2))) + 
     theme(legend.position = "bottom")
+  
+  tab_mod_mixed_lmer$slope[i] <- round(summary_temp_reg$coefficients[2,1],2)
+  tab_mod_mixed_lmer$pval[i] <- round(summary_temp_reg$coefficients[2,4],2)
 }
 
 ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
@@ -1929,6 +1950,13 @@ mp <- moran.plot(temp_mod_mixed_nlme_corExp$resids, df_wts, zero.policy = TRUE, 
 
 moranplot_list <- list()
 
+tab_mod_mixed_nlme_corExp <- data.frame(
+  region = regions$region,
+  slope = rep(NA,nrow(regions)),
+  pval = rep(NA,nrow(regions)),
+  model = rep("mod_mixed_nlme_corExp",nrow(regions))
+)
+
 for (i in 1:nrow(regions)){
   mp_reg <- mp |> filter(region==regions$region[i])
   temp_reg <- lm(wx~x,mp_reg)
@@ -1939,8 +1967,8 @@ for (i in 1:nrow(regions)){
     geom_smooth(formula=y ~ x, method="lm") + 
     geom_hline(yintercept=mean(mp_reg$wx), lty=2) + 
     geom_vline(xintercept=mean(mp_reg$x), lty=2) + theme_minimal() + 
-    geom_point(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx), shape=9) +
-    geom_label(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx, label=labels, fill=region), size=1) +
+    #geom_point(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx), shape=9) +
+    #geom_label(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx, label=labels, fill=region), size=1) +
     guides(fill = "none") +
     xlim(-5,5) + 
     ylim(-5,5) +
@@ -1952,6 +1980,9 @@ for (i in 1:nrow(regions)){
            "Slope = ",round(summary_temp_reg$coefficients[2,1],2),
            " , p-value = ",round(summary_temp_reg$coefficients[2,4],2))) + 
     theme(legend.position = "bottom")
+  
+  tab_mod_mixed_nlme_corExp$slope[i] <- round(summary_temp_reg$coefficients[2,1],2)
+  tab_mod_mixed_nlme_corExp$pval[i] <- round(summary_temp_reg$coefficients[2,4],2)
 }
 
 ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
@@ -1983,18 +2014,26 @@ mp <- moran.plot(temp_mod_mixed_gam_v2$resids, df_wts, zero.policy = TRUE, label
 
 moranplot_list <- list()
 
+tab_mod_mixed_gam_v2 <- data.frame(
+  region = regions$region,
+  slope = rep(NA,nrow(regions)),
+  pval = rep(NA,nrow(regions)),
+  model = rep("mod_mixed_gam_v2",nrow(regions))
+)
+
 for (i in 1:nrow(regions)){
   mp_reg <- mp |> filter(region==regions$region[i])
   temp_reg <- lm(wx~x,mp_reg)
   summary_temp_reg <- summary(temp_reg)
   
   xname <- attr(mp_reg, "xname")
-  moranplot_list[[i]] <- ggplot(mp_reg, aes(x=x, y=wx)) + geom_point(shape=1) + 
+  moranplot_list[[i]] <- ggplot(mp_reg, aes(x=x, y=wx)) + 
+    geom_point(shape=1) + 
     geom_smooth(formula=y ~ x, method="lm") + 
     geom_hline(yintercept=mean(mp_reg$wx), lty=2) + 
     geom_vline(xintercept=mean(mp_reg$x), lty=2) + theme_minimal() + 
-    geom_point(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx), shape=9) +
-    geom_label(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx, label=labels, fill=region), size=1) +
+    #geom_point(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx), shape=9) +
+    #geom_label(data=mp_reg[mp_reg$is_inf,], aes(x=x, y=wx, label=labels, fill=region), size=1) +
     guides(fill = "none") +
     xlim(-5,5) + 
     ylim(-5,5) +
@@ -2006,6 +2045,9 @@ for (i in 1:nrow(regions)){
            "Slope = ",round(summary_temp_reg$coefficients[2,1],2),
            " , p-value = ",round(summary_temp_reg$coefficients[2,4],2))) + 
     theme(legend.position = "bottom")
+  
+  tab_mod_mixed_gam_v2$slope[i] <- round(summary_temp_reg$coefficients[2,1],2)
+  tab_mod_mixed_gam_v2$pval[i] <- round(summary_temp_reg$coefficients[2,4],2)
 }
 
 ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
@@ -2017,6 +2059,44 @@ ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
 
 
 
+
+```{r, fig.width=10, fig.height=6}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+#| fig-cap: "Moran's scatterplot for residuals of mixed model, with fills by region for high leverage constituencies"
+
+moran_tab <- rbind(tab_mod_lm,
+                   tab_mod_mixed_nlme_corExp,
+                   tab_mod_mixed_lmer,
+                   tab_mod_mixed_gam_v2
+) |> 
+  mutate(sig_slope = case_when(pval <= 0.05 ~ slope,
+                               TRUE ~ 0),
+         model = factor(model,levels = c("mod_lm",
+                                   "mod_mixed_nlme_corExp",
+                                   "mod_mixed_lmer",
+                                   "mod_mixed_gam_v2")))
+
+ggplot(moran_tab) + 
+  geom_abline(aes(intercept = 0, 
+                  slope = sig_slope,
+                  group = model,
+                  colour = region),
+              size=0.75) + 
+  scale_color_paletteer_d(palette = "ggthemes::stata_s1color") + 
+  geom_hline(yintercept = 0, size=1) + 
+  geom_vline(xintercept = 0, size=1) + 
+  xlim(-5,5) + 
+  ylim(-5,5) + 
+  xlab("Residuals") + 
+  ylab(paste0("Spatially lagged Residuals")) +
+  theme_bw() + 
+  facet_wrap(~model) + 
+  labs(title = "Moran's I by region at 0.05 significance level")
+
+```
 
 
 
