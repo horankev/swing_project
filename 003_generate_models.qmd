@@ -984,7 +984,7 @@ regions_dorling <- cartogram_dorling(region_pop,weight="pop") |>
                                   conf.low >0 & conf.high>0 ~ estimate,
                                   TRUE ~ 0))
 
-ggplot(regions_dorling) + 
+dorl_mod_mixed_lmer <- ggplot(regions_dorling) + 
   geom_sf(aes(fill=sig_estimate)) + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
   coord_sf(datum=NA) + 
@@ -994,6 +994,8 @@ ggplot(regions_dorling) +
   theme_bw() + 
   theme(legend.position = "bottom") + 
   facet_wrap(~term, ncol = 5)
+
+dorl_mod_mixed_lmer
 
 ```
 
@@ -1132,7 +1134,7 @@ regions_dorling <- cartogram_dorling(region_pop,weight="pop") |>
                                   lower_2.5 >0 & upper_97.5>0 ~ value,
                                   TRUE ~ 0))
 
-ggplot(regions_dorling) + 
+dorl_mod_mixed_gam_v1 <- ggplot(regions_dorling) + 
   geom_sf(aes(fill=sig_estimate)) + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
   coord_sf(datum=NA) + 
@@ -1142,7 +1144,9 @@ ggplot(regions_dorling) +
   theme_bw() + 
   theme(legend.position = "bottom") + 
   facet_wrap(~effect, ncol = 4)
-###
+
+dorl_mod_mixed_gam_v1
+
 ```
 
 #### spatial
@@ -1427,7 +1431,7 @@ regions_dorling <- cartogram_dorling(region_pop,weight="pop") |>
                                   conf_lower >0 & conf_upper>0 ~ effect,
                                   TRUE ~ 0))
 
-ggplot() + 
+dorl_mod_mixed_gam_v2 <- ggplot() + 
   geom_sf(data=regions_dorling,aes(fill=sig_estimate),colour="black") + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint=0) + 
   coord_sf(datum=NA) + 
@@ -1437,6 +1441,8 @@ ggplot() +
   theme_bw() + 
   theme(legend.position = "bottom") + 
   facet_wrap(~variable, ncol = 5)
+
+dorl_mod_mixed_gam_v2
 
 ```
 
@@ -2202,7 +2208,7 @@ ggarrange(moranplot_list[[1]],moranplot_list[[2]],moranplot_list[[3]],
 
 ### Together in one image
 
-Moran’s I (spatial autocorrelation of residuals):
+#### Moran’s I (spatial autocorrelation of residuals):
  
 mod_nlme_corExp does not remove as much of this as the models without this within-region feature.
  
@@ -2250,7 +2256,15 @@ ggplot(moran_tab) +
 
 ```
 
+#### Spatial effects on coefficients
 
+```{r, fig.width=10, fig.height=6}
+
+dorl_mod_mixed_lmer
+dorl_mod_mixed_gam_v1
+dorl_mod_mixed_gam_v2
+
+```
 
 
 
