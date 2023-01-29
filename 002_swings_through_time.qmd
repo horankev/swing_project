@@ -293,6 +293,44 @@ ggarrange(hist1015, hist1517, hist1719, nrow = 3, common.legend = TRUE, legend =
 
 ```
 
+These histograms presented as scatterplots:
+
+```{r, fig.height=6, fig.width=10}
+
+ggplot(df_scaled) + 
+  geom_point(aes(x=s1015, y=s1517, fill=brexit), colour="black", size=2, shape=21) + 
+  scale_colour_brewer(palette = "RdGy", direction = -1) + 
+  scale_fill_brewer(palette = "RdGy", direction = -1) + 
+  xlim(-15,15) + 
+  ylim(-15,15) + 
+  geom_vline(xintercept = 0, colour="red") + 
+  geom_hline(yintercept = 0, colour="red") + 
+  facet_wrap(~region, nrow = 3) + 
+  theme_bw() +
+  labs(title = "Swing 2010-2015 and 2015-2017 by region",
+       subtitle = "Filled by Brexit vote")
+
+```
+
+
+```{r, fig.height=6, fig.width=10}
+
+ggplot(df_scaled) + 
+  geom_point(aes(x=s1517, y=s1719, fill=brexit), colour="black", size=2, shape=21) + 
+  scale_colour_brewer(palette = "RdGy", direction = -1) + 
+  scale_fill_brewer(palette = "RdGy", direction = -1) + 
+  xlim(-15,15) + 
+  ylim(-15,15) + 
+  geom_vline(xintercept = 0, colour="red") + 
+  geom_hline(yintercept = 0, colour="red") + 
+  facet_wrap(~region, nrow = 3) + 
+  theme_bw() +
+  labs(title = "Swing 2015-2017 and 2017-2019 by region",
+       subtitle = "Filled by Brexit vote")
+
+```
+
+
 ## Regional swings by election
 
 -   In regions where the largest swings were to occur in 2017-19 (blue), this can be anticipated as the right tail of their swing distribution did not retreat between 2010-15 (red) and 2015-17 (yellow).
