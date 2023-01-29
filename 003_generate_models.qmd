@@ -1670,7 +1670,7 @@ ggplot(three_mods, aes(x=value, y=group,
   labs(x="coef effect", 
        y=NULL, 
        title = "Comparison of random effects",
-       subtitle = "mod_mixed_lmer and mod_mixed_gam_v2") + 
+       subtitle = "mod_mixed_lmer, mod_mixed_gam_v1, and mod_mixed_gam_v2") + 
   guides(colour="none")
 
 
