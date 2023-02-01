@@ -1767,10 +1767,36 @@ gam_lrt_df <- data.frame(
   )
 )
 
-kbl(gam_lrt_df, caption="GAM models: Likelihood ratio test p-values") |> 
+kbl(gam_lrt_df, caption="GAM models: Likelihood ratio test p-values using anova() function") |> 
   kable_classic(full_width = F, html_font = "Cambria")
 
 ###
+library(lmtest)
+lrt_1 <- lrtest(mod_mixed_gam,mod_mixed_gam_v1)
+lrt_2 <- lrtest(mod_mixed_gam,mod_mixed_gam_v2)
+lrt_3 <- lrtest(mod_mixed_gam_v1,mod_mixed_gam_v2)
+
+gam_lrt_df2 <- data.frame(
+  model = c("mod_mixed_gam","mod_mixed_gam_v1","mod_mixed_gam_v2"),
+  mod_mixed_gam = c(
+    "-",
+    round(lrt_1$`Pr(>Chisq)`[2],3),
+    round(lrt_2$`Pr(>Chisq)`[2],3)
+  ),
+  mod_mixed_gam_v1 = c(
+    "-",
+    "-",
+    round(lrt_3$`Pr(>Chisq)`[2],3)
+  ),
+  mod_mixed_gam_v2 = c(
+    "-",
+    "-",
+    "-"
+  )
+)
+
+kbl(gam_lrt_df2, caption="GAM models: Likelihood ratio test p-values using lrt() function") |> 
+  kable_classic(full_width = F, html_font = "Cambria")
 
 ```
 
