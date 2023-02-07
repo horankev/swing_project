@@ -1495,7 +1495,7 @@ counties_dorling <- cartogram_dorling(region_pop,weight="pop") |>
                                   TRUE ~ "no"))
 
 dorl_mod_mixed_gam_v2_p2 <- ggplot() + 
-  geom_sf(data=counties_dorling,aes(fill=effect,colour=signifigant), linewidth=0.5) + 
+  geom_sf(data=counties_dorling,aes(fill=effect,colour=signifigant,label=region), linewidth=0.5) + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint=0) + 
   scale_colour_manual(values = c("gray90","black")) + 
   coord_sf(datum=NA) + 
@@ -2346,7 +2346,7 @@ ggplot(moran_tab) +
 
 ```
 
-#### Spatial effects on coefficients
+## Together: Spatial effects on coefficients
 
 ```{r, fig.width=10, fig.height=6}
 
