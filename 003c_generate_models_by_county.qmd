@@ -920,6 +920,30 @@ dorl_mod_mixed_lmer <- ggplot(counties_dorling) +
 
 dorl_mod_mixed_lmer
 
+
+# map polygons with equal numbers of voters per pixel
+counties_dorling <- cartogram_dorling(county_pop,weight="pop") |> 
+  left_join(mod_mixed_lmer_rand, by=c("county"="level")) |> 
+  mutate(signifigant = case_when(conf.low <0 & conf.high<0 ~ "yes",
+                                  conf.low >0 & conf.high>0 ~ "yes",
+                                  TRUE ~ "no"))
+
+dorl_mod_mixed_lmer_p2 <- ggplot() + 
+  geom_sf(data=counties_dorling,aes(fill=estimate,colour=signifigant), linewidth=0.5) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint=0) + 
+  scale_colour_manual(values = c("grey","black")) + 
+  coord_sf(datum=NA) + 
+  labs(fill="Geographic\neffect",
+       title = "Model: mod_mixed_lmer",
+       subtitle = "Size representing population") + 
+  theme_bw() + 
+  theme(legend.position = "bottom") + 
+  facet_wrap(~term, ncol = 5)
+
+dorl_mod_mixed_lmer_p2
+
+
+
 ```
 
 Spatial autocorrelation is substantially reduced by the mixed model, without adding any explicitly spatial component.
@@ -1069,6 +1093,27 @@ dorl_mod_mixed_gam_v1 <- ggplot(counties_dorling) +
   facet_wrap(~effect, ncol = 4)
 
 dorl_mod_mixed_gam_v1
+
+# map polygons with equal numbers of voters per pixel
+counties_dorling <- cartogram_dorling(county_pop,weight="pop") |> 
+  left_join(mod_mixed_gam_v1_random, by=c("county"="group")) |> 
+  mutate(signifigant = case_when(lower_2.5 <0 & upper_97.5<0 ~ "yes",
+                                  lower_2.5 >0 & upper_97.5>0 ~ "yes",
+                                  TRUE ~ "no"))
+
+dorl_mod_mixed_gam_v1_p2 <- ggplot() + 
+  geom_sf(data=counties_dorling,aes(fill=value,colour=signifigant), linewidth=0.5) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint=0) + 
+  scale_colour_manual(values = c("grey","black")) + 
+  coord_sf(datum=NA) + 
+  labs(fill="Geographic\neffect",
+       title = "Model: mod_mixed_gam_v1",
+       subtitle = "Size representing population") + 
+  theme_bw() + 
+  theme(legend.position = "bottom") + 
+  facet_wrap(~effect, ncol = 5)
+
+dorl_mod_mixed_gam_v1_p2
 
 ```
 
@@ -1387,6 +1432,28 @@ dorl_mod_mixed_gam_v2 <- ggplot() +
   facet_wrap(~variable, ncol = 5)
 
 dorl_mod_mixed_gam_v2
+
+# map polygons with equal numbers of voters per pixel
+counties_dorling <- cartogram_dorling(county_pop,weight="pop") |> 
+  left_join(temp3, by=c("county"="county")) |> 
+  mutate(signifigant = case_when(conf_lower <0 & conf_upper<0 ~ "yes",
+                                  conf_lower >0 & conf_upper>0 ~ "yes",
+                                  TRUE ~ "no"))
+
+dorl_mod_mixed_gam_v2_p2 <- ggplot() + 
+  geom_sf(data=counties_dorling,aes(fill=effect,colour=signifigant), linewidth=0.5) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint=0) + 
+  scale_colour_manual(values = c("grey","black")) + 
+  coord_sf(datum=NA) + 
+  labs(fill="Geographic\neffect",
+       title = "Model: mod_mixed_gam_v2",
+       subtitle = "Size representing population") + 
+  theme_bw() + 
+  theme(legend.position = "bottom") + 
+  facet_wrap(~variable, ncol = 5)
+
+dorl_mod_mixed_gam_v2_p2
+
 
 ```
 
@@ -1768,7 +1835,7 @@ kbl(gam_lrt_df, caption="GAM models: Likelihood ratio test p-values") |>
 ```
 
 
-### Spatial effects on coefficients together
+## Spatial effects on coefficients together
 
 ```{r, fig.width=10, fig.height=6}
 
@@ -1776,6 +1843,9 @@ dorl_mod_mixed_lmer
 dorl_mod_mixed_gam_v1
 dorl_mod_mixed_gam_v2
 
+dorl_mod_mixed_lmer_p2
+dorl_mod_mixed_gam_v1_p2
+dorl_mod_mixed_gam_v2_p2
 ```
 
 
