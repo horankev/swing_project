@@ -919,7 +919,7 @@ ggplot(mod_mixed_lmer_fix,aes(x=estimate, y=term,xmin=conf.low,xmax=conf.high,fi
     geom_vline(xintercept = 0, colour="red") + 
     theme_bw() + 
   labs(title = "Model: mod_mixed_lmer",
-       subtitle = "Fixed coefficients") + 
+       subtitle = "Fixed effects") + 
   xlim(-4,6)
 
 ```
@@ -990,7 +990,7 @@ dorl_mod_mixed_lmer <- ggplot(regions_dorling) +
   coord_sf(datum=NA) + 
   labs(fill="Random\neffects",
        title = "Model: mod_mixed_lmer",
-       subtitle = "Size representing population") + 
+       subtitle = "Random effects by region") + 
   theme_bw() + 
   theme(legend.position = "bottom") + 
   facet_wrap(~term, ncol = 5)
@@ -1009,9 +1009,9 @@ dorl_mod_mixed_lmer_p2 <- ggplot() +
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint=0) + 
   scale_colour_manual(values = c("gray90","black")) + 
   coord_sf(datum=NA) + 
-  labs(fill="Geographic\neffect",
+  labs(fill="Random\neffect",
        title = "Model: mod_mixed_lmer",
-       subtitle = "Size representing population") + 
+       subtitle = "Random effects by region") + 
   theme_bw() + 
   theme(legend.position = "bottom") + 
   facet_wrap(~term, ncol = 5)
@@ -1142,7 +1142,7 @@ for (var in levels(df_scaled$region)){
   (plot_spacer()|mod_mixed_gam_v1_plot_list[[8]]|mod_mixed_gam_v1_plot_list[[3]]|mod_mixed_gam_v1_plot_list[[7]]) +
   plot_annotation(
     title = "Model: mod_mixed_gam_v1",
-    subtitle = "Random intercepts and coefficients",
+    subtitle = "Random effects",
     theme = theme(plot.title = element_text(size = 16))
   )
 
@@ -1160,9 +1160,9 @@ dorl_mod_mixed_gam_v1 <- ggplot(regions_dorling) +
   geom_sf(aes(fill=sig_estimate)) + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
   coord_sf(datum=NA) + 
-  labs(fill="Geographic\neffect",
+  labs(fill="Random\neffect",
        title = "Model: mod_mixed_gam_v1",
-       subtitle = "Size representing population") + 
+       subtitle = "Random effects by region") + 
   theme_bw() + 
   theme(legend.position = "bottom") + 
   facet_wrap(~effect, ncol = 4)
@@ -1181,9 +1181,9 @@ dorl_mod_mixed_gam_v1_p2 <- ggplot() +
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint=0) + 
   scale_colour_manual(values = c("gray90","black")) + 
   coord_sf(datum=NA) + 
-  labs(fill="Geographic\neffect",
+  labs(fill="Random\neffect",
        title = "Model: mod_mixed_gam_v1",
-       subtitle = "Size representing population") + 
+       subtitle = "Random effects by region") + 
   theme_bw() + 
   theme(legend.position = "bottom") + 
   facet_wrap(~effect, ncol = 5)
@@ -1360,7 +1360,7 @@ ggplot(mod_mixed_gam_v2_fixed,aes(x=value, y=term,xmin=lower_2.5,xmax=upper_97.5
     geom_vline(xintercept = 0, colour="red") + 
     theme_bw() + 
   labs(title = "Model: mod_mixed_gam_v2",
-       subtitle = "Coefficients") + 
+       subtitle = "Main effect coefficients") + 
   xlim(-4,6)
 
 ```
@@ -1418,6 +1418,8 @@ temp3$conf_lower <- temp3$effect - qnorm(0.975)*temp3$std_error
 temp3$conf_upper <- temp3$effect + qnorm(0.975)*temp3$std_error
 
 temp3$variable <- str_remove(temp3$variable, "fit.")
+temp3$variable <- str_remove(temp3$variable, "region..")
+temp3$variable <- str_replace(temp3$variable, "region.", "(Intercept)")
 
 mod_mixed_gam_v2_plot_list <- list()
 i=1
@@ -1455,7 +1457,7 @@ for (var in levels(df_scaled$region)){
   (plot_spacer()|mod_mixed_gam_v2_plot_list[[8]]|mod_mixed_gam_v2_plot_list[[3]]|mod_mixed_gam_v2_plot_list[[7]]) +
   plot_annotation(
     title = "Model: mod_mixed_gam_v2",
-    subtitle = "Random intercepts and coefficients",
+    subtitle = "Interaction of intercepts/coefficients with regions, smoothed by MRF",
     theme = theme(plot.title = element_text(size = 16))
   )
 
@@ -1501,7 +1503,7 @@ dorl_mod_mixed_gam_v2_p2 <- ggplot() +
   coord_sf(datum=NA) + 
   labs(fill="Geographic\neffect",
        title = "Model: mod_mixed_gam_v2",
-       subtitle = "Size representing population") + 
+       subtitle = "Interaction of intercepts/coefficients with regions, smoothed by MRF") + 
   theme_bw() + 
   theme(legend.position = "bottom") + 
   facet_wrap(~variable, ncol = 5)
@@ -2358,11 +2360,96 @@ dorl_mod_mixed_lmer_p2
 dorl_mod_mixed_gam_v1_p2
 dorl_mod_mixed_gam_v2_p2
 
+
 ```
 
+```{r, fig.width=12, fig.height=4}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
 
+p_fixed_lmer <- ggplot(mod_mixed_lmer_fix,aes(x=estimate, y=term,xmin=conf.low,xmax=conf.high,fill=swingto,colour=swingto)) + 
+  geom_point(shape=21, size=3) + 
+  geom_errorbar() + 
+    scale_fill_manual(breaks = c("Conservative", "Labour"),
+                      values = c("darkblue", "firebrick4")) + 
+    scale_colour_manual(breaks = c("Conservative", "Labour"),
+                        values = c("darkblue", "firebrick4")) + 
+    geom_vline(xintercept = 0, colour="red") + 
+    theme_bw() + 
+  labs(title = "Model: mod_mixed_lmer",
+       subtitle = "Fixed effects") + 
+  xlim(-4,6)
 
+p_fixed_gam_v1 <- ggplot(mod_mixed_gam_v1_fixed,aes(x=value, y=term,xmin=lower_2.5,xmax=upper_97.5,fill=swingto,colour=swingto)) + 
+  geom_point(shape=21, size=3) + 
+  geom_errorbar() + 
+    scale_fill_manual(breaks = c("Conservative", "Labour"),
+                      values = c("darkblue", "firebrick4")) + 
+    scale_colour_manual(breaks = c("Conservative", "Labour"),
+                        values = c("darkblue", "firebrick4")) + 
+    geom_vline(xintercept = 0, colour="red") + 
+    theme_bw() + 
+  labs(title = "Model: mod_mixed_gam_v1",
+       subtitle = "Fixed effects") + 
+  xlim(-4,6)
 
+pgeo1_fixed_gam_v1 <- ggplot(mod_mixed_gam_v1_geog,
+                                     aes(x=effect, y=region,xmin=conf_lower,xmax=conf_upper,fill=swingto,colour=swingto)) + 
+  geom_point(shape=21, size=3) + 
+  geom_errorbar() + 
+  scale_fill_manual(breaks = c("Conservative", "Labour"),
+                    values = c("darkblue", "firebrick4")) + 
+  scale_colour_manual(breaks = c("Conservative", "Labour"),
+                      values = c("darkblue", "firebrick4")) + 
+  geom_vline(xintercept = 0, colour="red") + 
+  theme_bw() + 
+  labs(title = "Model: mod_mixed_gam_v1",
+       subtitle = "Varying intercept smoothed by MRF") + 
+  xlim(-4,2)
+
+pgeo2_fixed_gam_v1 <- ggplot(regions_contig) + 
+  geom_sf(aes(fill=fit.s.region.), lwd=0.1) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
+  coord_sf(datum=NA) + 
+  labs(fill="Geographic\neffect",
+       subtitle = "Varying intercept smoothed by MRF") + 
+  theme_bw()
+p_fixed_gam_v2 <- ggplot(mod_mixed_gam_v2_fixed,aes(x=value, y=term,xmin=lower_2.5,xmax=upper_97.5,fill=swingto,colour=swingto)) + 
+  geom_point(shape=21, size=3) + 
+  geom_errorbar() + 
+    scale_fill_manual(breaks = c("Conservative", "Labour"),
+                      values = c("darkblue", "firebrick4")) + 
+    scale_colour_manual(breaks = c("Conservative", "Labour"),
+                        values = c("darkblue", "firebrick4")) + 
+    geom_vline(xintercept = 0, colour="red") + 
+    theme_bw() + 
+  labs(title = "Model: mod_mixed_gam_v2",
+       subtitle = "Main effect coefficients") + 
+  xlim(-4,6)
+
+```
+
+## Output of three models of interest
+
+```{r, fig.width=12, fig.height=4}
+
+ggarrange(p_fixed_lmer,dorl_mod_mixed_lmer_p2, ncol = 2)
+
+```
+
+```{r, fig.width=12, fig.height=8}
+
+ggarrange(p_fixed_gam_v1,dorl_mod_mixed_gam_v1_p2, pgeo1_fixed_gam_v1, pgeo2_fixed_gam_v1, ncol = 2, nrow=2)
+
+```
+
+```{r, fig.width=12, fig.height=4}
+
+ggarrange(p_fixed_gam_v2,dorl_mod_mixed_gam_v2_p2, ncol = 2)
+
+```
 
 
 
