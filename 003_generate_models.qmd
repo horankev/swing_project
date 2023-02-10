@@ -870,6 +870,10 @@ ggplot(mp, aes(x=x, y=wx)) + geom_point(shape=1) +
 ```
 
 ```{r}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
 
 library(cartogram)
 
@@ -976,7 +980,7 @@ for (var in levels(df_scaled$region)){
 
 ```
 
-```{r, fig.width=12, fig.height=4}
+```{r, fig.width=12, fig.height=6}
 # map polygons with equal numbers of voters per pixel
 regions_dorling <- cartogram_dorling(region_pop,weight="pop") |> 
   left_join(mod_mixed_lmer_rand, by=c("region"="level")) |> 
@@ -1002,10 +1006,22 @@ counties_dorling <- cartogram_dorling(region_pop,weight="pop") |>
   left_join(mod_mixed_lmer_rand, by=c("region"="level")) |> 
   mutate(signifigant = case_when(conf.low <0 & conf.high<0 ~ "yes",
                                   conf.low >0 & conf.high>0 ~ "yes",
-                                  TRUE ~ "no"))
+                                  TRUE ~ "no"),
+         reg_abbrev = case_when(region == "Wales" ~ "W",
+                                region == "North East" ~ "NE",
+                                region == "North West" ~ "NW",
+                                region == "East" ~ "E",
+                                region == "South East" ~ "SE",
+                                region == "South West" ~ "SW",
+                                region == "London" ~ "L",
+                                region == "Merseyside" ~ "M",
+                                region == "East Midlands" ~ "EM",
+                                region == "West Midlands" ~ "WM",
+                                region == "Yorkshire and The Humber" ~ "YH"))
 
 dorl_mod_mixed_lmer_p2 <- ggplot() + 
   geom_sf(data=counties_dorling,aes(fill=estimate,colour=signifigant), linewidth=0.5) + 
+  geom_sf_text(data=counties_dorling,aes(label=reg_abbrev)) + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint=0) + 
   scale_colour_manual(values = c("gray90","black")) + 
   coord_sf(datum=NA) + 
@@ -1014,6 +1030,8 @@ dorl_mod_mixed_lmer_p2 <- ggplot() +
        subtitle = "Random effects by region") + 
   theme_bw() + 
   theme(legend.position = "bottom") + 
+  theme(axis.title.x = element_blank()) + 
+  theme(axis.title.y = element_blank()) +
   facet_wrap(~term, ncol = 5)
 
 dorl_mod_mixed_lmer_p2
@@ -1174,10 +1192,22 @@ counties_dorling <- cartogram_dorling(region_pop,weight="pop") |>
   left_join(mod_mixed_gam_v1_random, by=c("region"="group")) |> 
   mutate(signifigant = case_when(lower_2.5 <0 & upper_97.5<0 ~ "yes",
                                   lower_2.5 >0 & upper_97.5>0 ~ "yes",
-                                  TRUE ~ "no"))
+                                  TRUE ~ "no"),
+         reg_abbrev = case_when(region == "Wales" ~ "W",
+                                region == "North East" ~ "NE",
+                                region == "North West" ~ "NW",
+                                region == "East" ~ "E",
+                                region == "South East" ~ "SE",
+                                region == "South West" ~ "SW",
+                                region == "London" ~ "L",
+                                region == "Merseyside" ~ "M",
+                                region == "East Midlands" ~ "EM",
+                                region == "West Midlands" ~ "WM",
+                                region == "Yorkshire and The Humber" ~ "YH"))
 
 dorl_mod_mixed_gam_v1_p2 <- ggplot() + 
   geom_sf(data=counties_dorling,aes(fill=value,colour=signifigant), linewidth=0.5) + 
+  geom_sf_text(data=counties_dorling,aes(label=reg_abbrev)) + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint=0) + 
   scale_colour_manual(values = c("gray90","black")) + 
   coord_sf(datum=NA) + 
@@ -1186,6 +1216,8 @@ dorl_mod_mixed_gam_v1_p2 <- ggplot() +
        subtitle = "Random effects by region") + 
   theme_bw() + 
   theme(legend.position = "bottom") + 
+  theme(axis.title.x = element_blank()) + 
+  theme(axis.title.y = element_blank()) +
   facet_wrap(~effect, ncol = 5)
 
 dorl_mod_mixed_gam_v1_p2
@@ -1494,10 +1526,22 @@ counties_dorling <- cartogram_dorling(region_pop,weight="pop") |>
   left_join(temp3, by=c("region"="region")) |> 
   mutate(signifigant = case_when(conf_lower <0 & conf_upper<0 ~ "yes",
                                   conf_lower >0 & conf_upper>0 ~ "yes",
-                                  TRUE ~ "no"))
+                                  TRUE ~ "no"),
+         reg_abbrev = case_when(region == "Wales" ~ "W",
+                                region == "North East" ~ "NE",
+                                region == "North West" ~ "NW",
+                                region == "East" ~ "E",
+                                region == "South East" ~ "SE",
+                                region == "South West" ~ "SW",
+                                region == "London" ~ "L",
+                                region == "Merseyside" ~ "M",
+                                region == "East Midlands" ~ "EM",
+                                region == "West Midlands" ~ "WM",
+                                region == "Yorkshire and The Humber" ~ "YH"))
 
 dorl_mod_mixed_gam_v2_p2 <- ggplot() + 
   geom_sf(data=counties_dorling,aes(fill=effect,colour=signifigant,label=region), linewidth=0.5) + 
+  geom_sf_text(data=counties_dorling,aes(label=reg_abbrev)) + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint=0) + 
   scale_colour_manual(values = c("gray90","black")) + 
   coord_sf(datum=NA) + 
@@ -1506,6 +1550,8 @@ dorl_mod_mixed_gam_v2_p2 <- ggplot() +
        subtitle = "Interaction of intercepts/coefficients with regions, smoothed by MRF") + 
   theme_bw() + 
   theme(legend.position = "bottom") + 
+  theme(axis.title.x = element_blank()) + 
+  theme(axis.title.y = element_blank()) +
   facet_wrap(~variable, ncol = 5)
 
 dorl_mod_mixed_gam_v2_p2
@@ -2434,24 +2480,40 @@ p_fixed_gam_v2 <- ggplot(mod_mixed_gam_v2_fixed,aes(x=value, y=term,xmin=lower_2
 ## Output of three models of interest
 
 ```{r, fig.width=12, fig.height=4}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
 
 ggarrange(p_fixed_lmer,dorl_mod_mixed_lmer_p2, ncol = 2)
 
 ```
 
 ```{r, fig.width=12, fig.height=8}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
 
 ggarrange(p_fixed_gam_v1,dorl_mod_mixed_gam_v1_p2, pgeo1_fixed_gam_v1, pgeo2_fixed_gam_v1, ncol = 2, nrow=2)
 
 ```
 
 ```{r, fig.width=12, fig.height=4}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
 
 ggarrange(p_fixed_gam_v2,dorl_mod_mixed_gam_v2_p2, ncol = 2)
 
 ```
 
 ```{r}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
 
 const_contig <- cartogram_cont(df,weight="population") |> 
   mutate(degree_educated = df$degree_educated,
@@ -2462,7 +2524,11 @@ const_contig <- cartogram_cont(df,weight="population") |>
 ```
 
 
-```{r, fig.width=12, fig.height=8}
+```{r, fig.width=10, fig.height=6}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
 
 int1 <- ggplot(const_contig) + 
   geom_sf(aes(fill=degree_educated), linewidth=0) + 
