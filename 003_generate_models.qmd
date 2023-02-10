@@ -2451,6 +2451,46 @@ ggarrange(p_fixed_gam_v2,dorl_mod_mixed_gam_v2_p2, ncol = 2)
 
 ```
 
+```{r}
+
+const_contig <- cartogram_cont(df,weight="population") |> 
+  mutate(degree_educated = df$degree_educated,
+         health_not_good = df$health_not_good,
+         white = df$white,
+         younger_adults = df$younger_adults)
+
+```
+
+
+```{r, fig.width=12, fig.height=8}
+
+int1 <- ggplot(const_contig) + 
+  geom_sf(aes(fill=degree_educated), linewidth=0) + 
+  scale_fill_distiller(palette = "Greys", direction = 1) + 
+  labs(fill="degree\neducated") + 
+  theme_bw()
+
+int2 <- ggplot(const_contig) + 
+  geom_sf(aes(fill=health_not_good), linewidth=0) + 
+  scale_fill_distiller(palette = "Greens", direction = 1) + 
+  labs(fill="health\nnot good") + 
+  theme_bw()
+
+int3 <- ggplot(const_contig) + 
+  geom_sf(aes(fill=white), linewidth=0) + 
+  scale_fill_distiller(palette = "Blues", direction = 1) + 
+  labs(fill="white") + 
+  theme_bw()
+
+int4 <- ggplot(const_contig) + 
+  geom_sf(aes(fill=younger_adults), linewidth=0) + 
+  scale_fill_distiller(palette = "Reds", direction = 1) + 
+  labs(fill="younger\nadults") + 
+  theme_bw()
+
+ggarrange(int1,int2,int3,int4, nrow = 2, ncol = 2)
+
+```
 
 
 
