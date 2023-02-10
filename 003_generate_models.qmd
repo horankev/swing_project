@@ -875,8 +875,6 @@ ggplot(mp, aes(x=x, y=wx)) + geom_point(shape=1) +
 #| warning: false
 #| echo: false
 
-library(cartogram)
-
 region_pop <- df |> 
   st_transform(27700) |> 
   group_by(region) |> 
@@ -896,7 +894,7 @@ regions_contig <- cartogram_cont(region_pop,weight="pop")
 
 (using `lme4` package, out of the three equivalent models created above)
 
-### mod_mixed_lmer
+### a: mod_mixed_lmer
 
 #### fixed
 
@@ -981,6 +979,11 @@ for (var in levels(df_scaled$region)){
 ```
 
 ```{r, fig.width=12, fig.height=6}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
 # map polygons with equal numbers of voters per pixel
 regions_dorling <- cartogram_dorling(region_pop,weight="pop") |> 
   left_join(mod_mixed_lmer_rand, by=c("region"="level")) |> 
@@ -1072,6 +1075,193 @@ ggplot(mp, aes(x=x, y=wx)) + geom_point(shape=1) +
   ylab(paste0("Spatially lagged Residuals")) +
   scale_fill_brewer(palette = "Set3") + 
   labs(title = "mod_mixed_lmer",
+       subtitle = paste0("Slope = ",round(temp_reg$coefficients[2],2))) + 
+  theme(legend.position = "bottom")
+
+```
+
+
+### b: mod_mixed_lmer_correl
+
+#### fixed
+
+```{r, fig.width=12, fig.height=4}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+mod_mixed_lmer_correl@call
+
+mod_mixed_lmer_correl_fix <- broom.mixed::tidy(mod_mixed_lmer_correl, effects="fixed", conf.int=TRUE, conf.method = "profile")
+
+#like_rat_pval <- as.data.frame(anova(mm2.2,mm2.1))[2,8]
+mod_mixed_lmer_correl_fix$swingto <- case_when(mod_mixed_lmer_correl_fix$estimate>0 ~ "Conservative",
+                              TRUE ~ "Labour")
+ggplot(mod_mixed_lmer_correl_fix,aes(x=estimate, y=term,xmin=conf.low,xmax=conf.high,fill=swingto,colour=swingto)) + 
+  geom_point(shape=21, size=3) + 
+  geom_errorbar() + 
+    scale_fill_manual(breaks = c("Conservative", "Labour"),
+                      values = c("darkblue", "firebrick4")) + 
+    scale_colour_manual(breaks = c("Conservative", "Labour"),
+                        values = c("darkblue", "firebrick4")) + 
+    geom_vline(xintercept = 0, colour="red") + 
+    theme_bw() + 
+  labs(title = "Model: mod_mixed_lmer_correl",
+       subtitle = "Fixed effects") + 
+  xlim(-4,6)
+
+```
+
+#### random
+
+```{r, fig.width=10,fig.height=8}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+mod_mixed_lmer_correl_rand <- broom.mixed::tidy(mod_mixed_lmer_correl, effects="ran_vals", conf.int=TRUE)
+
+mod_mixed_lmer_correl_plot_list <- list()
+i=1
+for (var in levels(df_scaled$region)){
+  mmtemp <- mod_mixed_lmer_correl_rand[mod_mixed_lmer_correl_rand$level==levels(df_scaled$region)[i],]
+  mmtemp$swingto <- case_when(mmtemp$estimate>0 ~ "Conservative",
+                              TRUE ~ "Labour")
+  mod_mixed_lmer_correl_plot_list[[i]] <- ggplot(mmtemp, aes(x=estimate, y=term,
+                                              xmin=conf.low,
+                                              xmax=conf.high, 
+                                              fill=swingto,
+                                              colour=swingto)) + 
+    geom_errorbar(lwd=0.5, colour="black") + 
+    geom_point(shape=21, size=3) + 
+    scale_fill_manual(breaks = c("Conservative", "Labour"),
+                      values = c("darkblue", "firebrick4")) + 
+    scale_colour_manual(breaks = c("Conservative", "Labour"),
+                        values = c("darkblue", "firebrick4")) + 
+    geom_vline(xintercept = 0, colour="red") + 
+    theme_bw() + 
+    theme(plot.title =element_text(size=10, face='bold'),
+          plot.subtitle =element_text(size=8)) + 
+    labs(x="coef effect", 
+         y=NULL, 
+         title = levels(df_scaled$region)[i]) + 
+    guides(fill="none",
+           colour="none")
+  
+  i= i+1
+}
+
+(plot_spacer()|plot_spacer()|mod_mixed_lmer_correl_plot_list[[5]]|plot_spacer()) / 
+  (plot_spacer()|mod_mixed_lmer_correl_plot_list[[4]]|mod_mixed_lmer_correl_plot_list[[6]]|mod_mixed_lmer_correl_plot_list[[11]]|plot_spacer()) / 
+  (mod_mixed_lmer_correl_plot_list[[9]]|mod_mixed_lmer_correl_plot_list[[10]]|mod_mixed_lmer_correl_plot_list[[2]]|mod_mixed_lmer_correl_plot_list[[1]]) /
+  (plot_spacer()|mod_mixed_lmer_correl_plot_list[[8]]|mod_mixed_lmer_correl_plot_list[[3]]|mod_mixed_lmer_correl_plot_list[[7]]) +
+  plot_annotation(
+    title = "Model: mod_mixed_lmer_correl",
+    subtitle = "Random intercepts and coefficients",
+    theme = theme(plot.title = element_text(size = 16))
+  )
+
+```
+
+```{r, fig.width=12, fig.height=6}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+# map polygons with equal numbers of voters per pixel
+regions_dorling <- cartogram_dorling(region_pop,weight="pop") |> 
+  left_join(mod_mixed_lmer_correl_rand, by=c("region"="level")) |> 
+  mutate(sig_estimate = case_when(conf.low <0 & conf.high<0 ~ estimate,
+                                  conf.low >0 & conf.high>0 ~ estimate,
+                                  TRUE ~ 0))
+
+dorl_mod_mixed_lmer_correl <- ggplot(regions_dorling) + 
+  geom_sf(aes(fill=sig_estimate)) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
+  coord_sf(datum=NA) + 
+  labs(fill="Random\neffects",
+       title = "Model: mod_mixed_lmer_correl",
+       subtitle = "Random effects by region") + 
+  theme_bw() + 
+  theme(legend.position = "bottom") + 
+  facet_wrap(~term, ncol = 5)
+
+dorl_mod_mixed_lmer
+
+# map polygons with equal numbers of voters per pixel
+regions_dorling2 <- cartogram_dorling(region_pop,weight="pop") |> 
+  left_join(mod_mixed_lmer_correl_rand, by=c("region"="level")) |> 
+  mutate(signifigant = case_when(conf.low <0 & conf.high<0 ~ "yes",
+                                  conf.low >0 & conf.high>0 ~ "yes",
+                                  TRUE ~ "no"),
+         reg_abbrev = case_when(region == "Wales" ~ "W",
+                                region == "North East" ~ "NE",
+                                region == "North West" ~ "NW",
+                                region == "East" ~ "E",
+                                region == "South East" ~ "SE",
+                                region == "South West" ~ "SW",
+                                region == "London" ~ "L",
+                                region == "Merseyside" ~ "M",
+                                region == "East Midlands" ~ "EM",
+                                region == "West Midlands" ~ "WM",
+                                region == "Yorkshire and The Humber" ~ "YH"))
+
+dorl_mod_mixed_lmer_correl_p2 <- ggplot() + 
+  geom_sf(data=regions_dorling2,aes(fill=estimate,colour=signifigant), linewidth=0.5) + 
+  geom_sf_text(data=regions_dorling2,aes(label=reg_abbrev)) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint=0) + 
+  scale_colour_manual(values = c("gray90","black")) + 
+  coord_sf(datum=NA) + 
+  labs(fill="Random\neffect",
+       title = "Model: mod_mixed_lmer_correl",
+       subtitle = "Random effects by region") + 
+  theme_bw() + 
+  theme(legend.position = "bottom") + 
+  theme(axis.title.x = element_blank()) + 
+  theme(axis.title.y = element_blank()) +
+  facet_wrap(~term, ncol = 5)
+
+dorl_mod_mixed_lmer_correl_p2
+
+
+```
+
+Spatial autocorrelation is substantially reduced by the mixed model, without adding any explicitly spatial component.
+
+```{r, fig.width=12, fig.height=4}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+#| fig-cap: "Moran's scatterplot for residuals of mixed model, with fills by region for high leverage constituencies"
+
+temp_mod_mixed_lmer_correl <- df |> 
+  select(con_swing,constituency_name,constituency_name) |> 
+  mutate(resids = resid(mod_mixed_lmer_correl))
+
+df_nb <- poly2nb(df)
+df_wts <- nb2listw(df_nb, zero.policy = TRUE)
+
+mp <- moran.plot(temp_mod_mixed_lmer_correl$resids, df_wts, zero.policy = TRUE, labels = temp_mod_mixed_lmer_correl$constituency_name, plot=FALSE) |> 
+  mutate(region=df$region)
+
+temp_reg <- lm(wx~x,mp)
+
+xname <- attr(mp, "xname")
+ggplot(mp, aes(x=x, y=wx)) + geom_point(shape=1) + 
+  geom_smooth(formula=y ~ x, method="lm") + 
+  geom_hline(yintercept=mean(mp$wx), lty=2) + 
+  geom_vline(xintercept=mean(mp$x), lty=2) + theme_minimal() + 
+  geom_point(data=mp[mp$is_inf,], aes(x=x, y=wx), shape=9) +
+  geom_label(data=mp[mp$is_inf,], aes(x=x, y=wx, label=labels, fill=region), size=1) +
+  guides(fill = "none") +
+  xlab("Residuals") + 
+  ylab(paste0("Spatially lagged Residuals")) +
+  scale_fill_brewer(palette = "Set3") + 
+  labs(title = "mod_mixed_lmer_correl",
        subtitle = paste0("Slope = ",round(temp_reg$coefficients[2],2))) + 
   theme(legend.position = "bottom")
 
@@ -2425,8 +2615,27 @@ p_fixed_lmer <- ggplot(mod_mixed_lmer_fix,aes(x=estimate, y=term,xmin=conf.low,x
     geom_vline(xintercept = 0, colour="red") + 
     theme_bw() + 
   labs(title = "Model: mod_mixed_lmer",
-       subtitle = "Fixed effects") + 
-  xlim(-4,6)
+       subtitle = "Fixed effects",
+       fill = "swing to: ",
+       colour = "swing to: ") + 
+  xlim(-4,6) + 
+  theme(legend.position = "bottom")
+
+p_fixed_lmer_corr <- ggplot(mod_mixed_lmer_correl_fix,aes(x=estimate, y=term,xmin=conf.low,xmax=conf.high,fill=swingto,colour=swingto)) + 
+  geom_point(shape=21, size=3) + 
+  geom_errorbar() + 
+    scale_fill_manual(breaks = c("Conservative", "Labour"),
+                      values = c("darkblue", "firebrick4")) + 
+    scale_colour_manual(breaks = c("Conservative", "Labour"),
+                        values = c("darkblue", "firebrick4")) + 
+    geom_vline(xintercept = 0, colour="red") + 
+    theme_bw() + 
+  labs(title = "Model: mod_mixed_lmer_correl",
+       subtitle = "Fixed effects",
+       fill = "swing to: ",
+       colour = "swing to: ") + 
+  xlim(-4,6) + 
+  theme(legend.position = "bottom")
 
 p_fixed_gam_v1 <- ggplot(mod_mixed_gam_v1_fixed,aes(x=value, y=term,xmin=lower_2.5,xmax=upper_97.5,fill=swingto,colour=swingto)) + 
   geom_point(shape=21, size=3) + 
@@ -2438,8 +2647,11 @@ p_fixed_gam_v1 <- ggplot(mod_mixed_gam_v1_fixed,aes(x=value, y=term,xmin=lower_2
     geom_vline(xintercept = 0, colour="red") + 
     theme_bw() + 
   labs(title = "Model: mod_mixed_gam_v1",
-       subtitle = "Fixed effects") + 
-  xlim(-4,6)
+       subtitle = "Fixed effects",
+       fill = "swing to: ",
+       colour = "swing to: ") + 
+  xlim(-4,6) + 
+  theme(legend.position = "bottom")
 
 pgeo1_fixed_gam_v1 <- ggplot(mod_mixed_gam_v1_geog,
                                      aes(x=effect, y=region,xmin=conf_lower,xmax=conf_upper,fill=swingto,colour=swingto)) + 
@@ -2453,7 +2665,8 @@ pgeo1_fixed_gam_v1 <- ggplot(mod_mixed_gam_v1_geog,
   theme_bw() + 
   labs(title = "Model: mod_mixed_gam_v1",
        subtitle = "Varying intercept smoothed by MRF") + 
-  xlim(-4,2)
+  xlim(-4,2) + 
+  theme(legend.position = "bottom")
 
 pgeo2_fixed_gam_v1 <- ggplot(regions_contig) + 
   geom_sf(aes(fill=fit.s.region.), lwd=0.1) + 
@@ -2461,23 +2674,28 @@ pgeo2_fixed_gam_v1 <- ggplot(regions_contig) +
   coord_sf(datum=NA) + 
   labs(fill="Geographic\neffect",
        subtitle = "Varying intercept smoothed by MRF") + 
-  theme_bw()
+  theme_bw() + 
+  theme(legend.position = "bottom")
+
 p_fixed_gam_v2 <- ggplot(mod_mixed_gam_v2_fixed,aes(x=value, y=term,xmin=lower_2.5,xmax=upper_97.5,fill=swingto,colour=swingto)) + 
   geom_point(shape=21, size=3) + 
   geom_errorbar() + 
-    scale_fill_manual(breaks = c("Conservative", "Labour"),
+  scale_fill_manual(breaks = c("Conservative", "Labour"),
+                    values = c("darkblue", "firebrick4")) + 
+  scale_colour_manual(breaks = c("Conservative", "Labour"),
                       values = c("darkblue", "firebrick4")) + 
-    scale_colour_manual(breaks = c("Conservative", "Labour"),
-                        values = c("darkblue", "firebrick4")) + 
-    geom_vline(xintercept = 0, colour="red") + 
-    theme_bw() + 
+  geom_vline(xintercept = 0, colour="red") + 
+  theme_bw() + 
   labs(title = "Model: mod_mixed_gam_v2",
-       subtitle = "Main effect coefficients") + 
-  xlim(-4,6)
+       subtitle = "Main effect coefficients",
+       fill = "swing to: ",
+       colour = "swing to: ") + 
+  xlim(-4,6) + 
+  theme(legend.position = "bottom")
 
 ```
 
-## Output of three models of interest
+## Output of four models of interest
 
 ```{r, fig.width=12, fig.height=4}
 #| code-fold: false
@@ -2486,6 +2704,17 @@ p_fixed_gam_v2 <- ggplot(mod_mixed_gam_v2_fixed,aes(x=value, y=term,xmin=lower_2
 #| echo: false
 
 ggarrange(p_fixed_lmer,dorl_mod_mixed_lmer_p2, ncol = 2, widths = c(1,1.3))
+
+```
+
+
+```{r, fig.width=12, fig.height=4}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+ggarrange(p_fixed_lmer_corr,dorl_mod_mixed_lmer_correl_p2, ncol = 2, widths = c(1,1.3))
 
 ```
 
@@ -2574,7 +2803,7 @@ group2 <- ggplot() +
   geom_sf(data=carto_reg, fill=NA, linewidth=0.5, colour="black") + 
   coord_sf(datum = NA) + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(fill="swing") + 
+  labs(fill="conservative swing") + 
   theme_bw() + 
   theme(legend.position="top")
 
@@ -2582,6 +2811,10 @@ group2 <- ggplot() +
 
 
 ```{r, fig.width=12, fig.height=6}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
 
 ggarrange(group2,group1, ncol = 2, widths = c(1,1.3))
 
