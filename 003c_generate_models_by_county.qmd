@@ -1888,7 +1888,7 @@ dorl_mod_mixed_gam_v2_p2
 ```
 
 
-## Make "new regions"
+## Make new pseudo-regions
 
 ```{r, fig.width=10, fig.height=10}
 #| code-fold: false
@@ -1896,20 +1896,20 @@ dorl_mod_mixed_gam_v2_p2
 #| warning: false
 #| echo: false
 
-smallgeo <- mod_mixed_gam_v2_df_reg |> 
-  filter(county != "Isle of Wight")
+countynb <- poly2nb(mod_mixed_gam_v2_df_reg, queen = TRUE)
 
-xx <- poly2nb(smallgeo, queen = TRUE)
-class(xx) <- "nb"
-
+# fix Isle of Wight contiguity
+countynb[[26]]<-22 |> 
+  as.integer()
+countynb[[22]]<-c(3, 13, 26, 46, 51, 53) |> 
+  as.integer()
 
 dat <- mod_mixed_gam_v2_df_reg |> 
-  filter(county != "Isle of Wight") |> 
   select(fit.s.county.,fit.s.county..degree_educated,fit.s.county..younger_adults,fit.s.county..health_not_good,fit.s.county..white) |> 
   st_drop_geometry() |> 
   apply(2,scale) |> 
   data.frame() |> 
-  mutate(geometry = smallgeo$geometry) |> 
+  mutate(geometry = mod_mixed_gam_v2_df_reg$geometry) |> 
   st_as_sf() |> 
   as_Spatial()
 
@@ -1923,11 +1923,11 @@ vars <- c("fit.s.county.",
 
 sdat <- data.frame(dat@data[,vars])
 # edge costs - dissimilarity between node and its neighbours
-lcosts <- nbcosts(xx,sdat)
+lcosts <- nbcosts(countynb,sdat)
 
 # make this into a weights object
 # style is B to make sure cost values are not row-standardised
-df.w <- nb2listw(xx,lcosts,style = "B")
+df.w <- nb2listw(countynb,lcosts,style = "B")
 
 # create minimum spanning tree
 df.mst <- mstree(df.w)
@@ -1942,7 +1942,7 @@ tc <- total_clusters-1
 
 clusts <- spdep::skater(df.mst[,1:2],sdat,tc,crit = 1)
 
-df_clus <- smallgeo |> 
+df_clus <- mod_mixed_gam_v2_df_reg |> 
   st_as_sf() |> 
   mutate(clus = factor(clusts$groups, 
                        levels = c("1","2","3","4","5","6","7","8","9","10","11","12"))) |> 
@@ -1950,7 +1950,7 @@ df_clus <- smallgeo |>
 
 ggplot() + 
   geom_sf(data=df_clus, aes(fill=clus), linewidth=0.1, colour="gray10") + 
-  scale_fill_brewer(palette = "Set3", direction = -1) +
+  scale_fill_brewer(palette = "Set3", direction = 1) +
   geom_sf(data=regions, aes(fill=NA), linewidth=0.5) + 
   geom_sf_label(data=df_clus, aes(label=county), size=2) + 
   theme_bw() + 
@@ -1968,8 +1968,7 @@ ggplot() +
 
 county_swing <- df_sc_county |> 
   group_by(county) |> 
-  summarise(mean_con_swing = mean(con_swing)) |> 
-  filter(county != "Isle of Wight")
+  summarise(mean_con_swing = mean(con_swing))
 
 group_clus <- df_clus |> 
   mutate(con_swing = county_swing$mean_con_swing) |> 
@@ -2039,7 +2038,7 @@ ggarrange(gr1, gr2, gr3, gr4, gr5, nrow = 1, common.legend = TRUE, legend = "bot
 
 col1 <- ggplot() + 
   geom_sf(data=df_clus, aes(fill=clus), linewidth=0.1, colour="gray10") + 
-  scale_fill_brewer(palette = "Set3", direction = -1) +
+  scale_fill_brewer(palette = "Set3", direction = 1) +
   geom_sf(data=regions, aes(fill=NA), linewidth=0.5) + 
   geom_sf_label(data=df_clus, aes(label=county), size=2) + 
   labs(fill = "pseudo-region") + 
