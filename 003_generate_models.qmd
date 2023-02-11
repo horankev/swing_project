@@ -356,14 +356,14 @@ mod_mixed_gam <-
         s(white,region, bs="re"),
       data=df_sc_region, method="REML")
 
-mod_mixed_nlme <- 
+mod_mixed_nlme <-
   lme(fixed = con_swing ~
         degree_educated +
         younger_adults +
         health_not_good +
         white,
       random = list(region = pdDiag(
-        ~1+degree_educated+younger_adults+health_not_good+white)), 
+        ~1+degree_educated+younger_adults+health_not_good+white)),
       data=df_sc_region, method = "REML")
 
 ###
@@ -601,17 +601,6 @@ models_table <- data_frame(
           mod_nlme_corLin_rmse,
           mod_mixed_gam_v1_rmse,
           mod_mixed_gam_v2_rmse),
-  `AIC (min to max)` = c(AIC(mod_lm),
-          AIC(mod_lm_mrf),
-          AIC(mod_mixed_lmer),
-          AIC(mod_mixed_gam),
-          AIC(mod_mixed_nlme),
-          AIC(mod_mixed_lmer_correl),
-          AIC(mod_nlme_corGaus),
-          AIC(mod_nlme_corExp),
-          AIC(mod_nlme_corLin),
-          AIC(mod_mixed_gam_v1),
-          AIC(mod_mixed_gam_v2)),
   `Morans-I` = c(m_mod_lm,
           m_mod_lm_mrf,
           m_mod_mixed_lmer,
@@ -622,10 +611,44 @@ models_table <- data_frame(
           m_mod_nlme_corExp,
           m_mod_nlme_corLin,
           m_mod_mixed_gam_v1,
-          m_mod_mixed_gam_v2)) |> 
+          m_mod_mixed_gam_v2),
+  `AIC (min to max)` = c(AIC(mod_lm),
+          AIC(mod_lm_mrf),
+          AIC(mod_mixed_lmer),
+          AIC(mod_mixed_gam),
+          AIC(mod_mixed_nlme),
+          AIC(mod_mixed_lmer_correl),
+          AIC(mod_nlme_corGaus),
+          AIC(mod_nlme_corExp),
+          AIC(mod_nlme_corLin),
+          AIC(mod_mixed_gam_v1),
+          AIC(mod_mixed_gam_v2))) |> 
   arrange(`AIC (min to max)`)
 
 kbl(models_table, caption="Summary of model outputs") |> 
+  kable_classic(full_width = F, html_font = "Cambria")
+
+```
+
+
+```{r}
+
+models_table2 <- models_table |> 
+  mutate(framework = case_when(package == "gam" ~ "gam",
+                                  TRUE ~ "other"))
+
+models_table3 <- models_table2 |> filter(package == "gam") |> 
+  mutate(rel_AIC = `AIC (min to max)` - models_table[models_table$model=="mod_mixed_gam",]$`AIC (min to max)`)
+
+models_table4 <- models_table2 |> filter(package != "gam")  |> 
+  mutate(rel_AIC = round(`AIC (min to max)` - models_table[models_table$model=="mod_mixed_lmer",]$`AIC (min to max)`,3))
+
+models_table5 <- rbind(models_table3,models_table4) |> 
+  rename(AIC = `AIC (min to max)`) |> 
+  arrange(rel_AIC) |> 
+  data.frame()
+
+kbl(models_table5, caption="Summary of region model outputs") |> 
   kable_classic(full_width = F, html_font = "Cambria")
 
 ```
@@ -1994,6 +2017,10 @@ The mod_mixed_gam_v1 with contiguity relationship between regions is also better
 However, I’m not sure if I can perform a LRT between mod_nlme_corExp and mod_mixed_gam_v1 or mod_mixed_gam_v2 to decide which is better.
 
 ```{r}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
 
 ###
 
@@ -2040,6 +2067,15 @@ nlme_lrt_df <- data.frame(
     )
 
 kbl(nlme_lrt_df, caption="NLME models: Likelihood ratio test p-values") |> 
+  kable_classic(full_width = F, html_font = "Cambria")
+
+###
+
+lmer_lrt_df <- anova(mod_mixed_lmer,mod_mixed_lmer_correl) |> 
+  mutate(model = c("mod_mixed_lmer","mod_mixed_lmer_correl")) |> 
+  select(model, everything())
+
+kbl(lmer_lrt_df, caption="LMER/LMERcorrel models: Likelihood ratio test p-values") |> 
   kable_classic(full_width = F, html_font = "Cambria")
 
 ###
