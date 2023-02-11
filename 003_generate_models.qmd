@@ -577,7 +577,7 @@ temp_reg <- lm(wx~x,mp)
 m_mod_mixed_gam_v2 <- round(temp_reg$coefficients[2],3)
 
 models_table <- data_frame(
-  package = c("base","gam","lme4","gam","nlme","lme4","nlme","nlme","nlme","gam","gam"),
+  package = c("base","mgcv","lme4","mgcv","nlme","lme4","nlme","nlme","nlme","mgcv","mgcv"),
   model = c("mod_lm",
           "mod_lm_mrf",
           "mod_mixed_lmer",
@@ -634,13 +634,13 @@ kbl(models_table, caption="Summary of model outputs") |>
 ```{r}
 
 models_table2 <- models_table |> 
-  mutate(framework = case_when(package == "gam" ~ "gam",
-                                  TRUE ~ "other"))
+  mutate(framework = case_when(package == "mgcv" ~ "gam",
+                                  TRUE ~ "lm"))
 
-models_table3 <- models_table2 |> filter(package == "gam") |> 
+models_table3 <- models_table2 |> filter(package == "mgcv") |> 
   mutate(rel_AIC = `AIC (min to max)` - models_table[models_table$model=="mod_mixed_gam",]$`AIC (min to max)`)
 
-models_table4 <- models_table2 |> filter(package != "gam")  |> 
+models_table4 <- models_table2 |> filter(package != "mgcv")  |> 
   mutate(rel_AIC = round(`AIC (min to max)` - models_table[models_table$model=="mod_mixed_lmer",]$`AIC (min to max)`,3))
 
 models_table5 <- rbind(models_table3,models_table4) |> 
@@ -649,7 +649,8 @@ models_table5 <- rbind(models_table3,models_table4) |>
   data.frame()
 
 kbl(models_table5, caption="Summary of region model outputs") |> 
-  kable_classic(full_width = F, html_font = "Cambria")
+  kable_classic(full_width = F, html_font = "Cambria") |> 
+  row_spec(3:5, background = "#F5E4E6")
 
 ```
 
