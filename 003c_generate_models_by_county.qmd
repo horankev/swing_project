@@ -201,6 +201,11 @@ df_scaled_sf <- df_scaled |>
 #| echo: false
 
 nlistcount <- counties %>% st_touches()
+
+# make Isle of Wight and Hampshire neighbours manually
+nlistcount[[26]]<-22
+nlistcount[[22]]<-c(3, 13, 26, 46, 51, 53)
+
 names(nlistcount) <- counties$county
 df_sc_county <- df_scaled_sf |> 
   st_drop_geometry() |> 
@@ -792,8 +797,10 @@ Spatial autocorrelation is reduced by adding MRF spatial component. It acts like
 ```
 
 ```{r}
-
-library(cartogram)
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
 
 county_pop <- df |> 
   st_transform(27700) |> 
@@ -801,10 +808,6 @@ county_pop <- df |>
   summarise(pop = sum(population))
   
 counties_contig <- cartogram_cont(county_pop,weight="pop")
-
-
-
-
 
 ```
 
@@ -1364,6 +1367,8 @@ temp3$conf_lower <- temp3$effect - qnorm(0.975)*temp3$std_error
 temp3$conf_upper <- temp3$effect + qnorm(0.975)*temp3$std_error
 
 temp3$variable <- str_remove(temp3$variable, "fit.")
+temp3$variable <- str_remove(temp3$variable, "county..")
+temp3$variable <- str_replace(temp3$variable, "county.", "(Intercept)")
 
 # mod_mixed_gam_v2_plot_list <- list()
 # i=1
@@ -1745,6 +1750,10 @@ The mod_mixed_gam_v1 with contiguity relationship between regions is also better
 However, I’m not sure if I can perform a LRT between mod_nlme_corExp and mod_mixed_gam_v1 or mod_mixed_gam_v2 to decide which is better.
 
 ```{r}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
 
 ###
 
@@ -1838,6 +1847,10 @@ kbl(gam_lrt_df, caption="GAM models: Likelihood ratio test p-values") |>
 ## Spatial effects on coefficients together
 
 ```{r, fig.width=10, fig.height=6}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
 
 dorl_mod_mixed_lmer
 dorl_mod_mixed_gam_v1
@@ -1849,11 +1862,300 @@ dorl_mod_mixed_gam_v2_p2
 ```
 
 
+## Make "new regions"
+
+```{r, fig.width=10, fig.height=10}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+smallgeo <- mod_mixed_gam_v2_df_reg |> 
+  filter(county != "Isle of Wight")
+
+xx <- poly2nb(smallgeo, queen = TRUE)
+class(xx) <- "nb"
+
+
+dat <- mod_mixed_gam_v2_df_reg |> 
+  filter(county != "Isle of Wight") |> 
+  select(fit.s.county.,fit.s.county..degree_educated,fit.s.county..younger_adults,fit.s.county..health_not_good,fit.s.county..white) |> 
+  st_drop_geometry() |> 
+  apply(2,scale) |> 
+  data.frame() |> 
+  mutate(geometry = smallgeo$geometry) |> 
+  st_as_sf() |> 
+  as_Spatial()
+
+vars <- c("fit.s.county.",
+          "fit.s.county..degree_educated",
+          "fit.s.county..younger_adults",
+          "fit.s.county..health_not_good",
+          "fit.s.county..white"
+  
+)
+
+sdat <- data.frame(dat@data[,vars])
+# edge costs - dissimilarity between node and its neighbours
+lcosts <- nbcosts(xx,sdat)
+
+# make this into a weights object
+# style is B to make sure cost values are not row-standardised
+df.w <- nb2listw(xx,lcosts,style = "B")
+
+# create minimum spanning tree
+df.mst <- mstree(df.w)
+
+# plot(df.mst,coordinates(dat),col="blue",
+#       cex.lab=0.7)
+# plot(dat,border=gray(.5),add=TRUE)
+
+# skater function for contiguity-constrained cluster
+total_clusters <- 12
+tc <- total_clusters-1
+
+clusts <- spdep::skater(df.mst[,1:2],sdat,tc,crit = 1)
+
+df_clus <- smallgeo |> 
+  st_as_sf() |> 
+  mutate(clus = factor(clusts$groups, 
+                       levels = c("1","2","3","4","5","6","7","8","9","10","11","12"))) |> 
+  st_transform(crs=27700)
+
+ggplot() + 
+  geom_sf(data=df_clus, aes(fill=clus), linewidth=0.1, colour="gray10") + 
+  scale_fill_brewer(palette = "Set3", direction = -1) +
+  geom_sf(data=regions, aes(fill=NA), linewidth=0.5) + 
+  geom_sf_label(data=df_clus, aes(label=county), size=2) + 
+  theme_bw() + 
+  theme(axis.title.x = element_blank()) + 
+  theme(axis.title.y = element_blank())
+
+```
+
+
+```{r, fig.width=12, fig.height=4}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+county_swing <- df_sc_county |> 
+  group_by(county) |> 
+  summarise(mean_con_swing = mean(con_swing)) |> 
+  filter(county != "Isle of Wight")
+
+group_clus <- df_clus |> 
+  mutate(con_swing = county_swing$mean_con_swing) |> 
+  group_by(clus) |> 
+  summarise(intercept = mean(fit.s.county.),
+          degree_educated = mean(fit.s.county..degree_educated),
+          health_not_good = mean(fit.s.county..health_not_good),
+          white = mean(fit.s.county..white),
+          younger_adults = mean(fit.s.county..younger_adults),
+          sd_intercept = sd(fit.s.county.),
+          sd_degree_educated = sd(fit.s.county..degree_educated),
+          sd_health_not_good = sd(fit.s.county..health_not_good),
+          sd_white = sd(fit.s.county..white),
+          sd_younger_adults = sd(fit.s.county..younger_adults),
+          con_swing = mean(con_swing))
+
+gr1 <- ggplot(group_clus) + 
+  geom_sf(aes(fill=intercept)) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0, limits=c(-1.8,1.8)) + 
+  labs(title = "intercept",
+       fill = "mean county effect") + 
+  coord_sf(datum=NA) + 
+  theme_bw()
+
+gr2 <- ggplot(group_clus) + 
+  geom_sf(aes(fill=degree_educated)) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0, limits=c(-1.8,1.8)) + 
+  labs(title = "degree_educated",
+       fill = "mean county effect") + 
+  coord_sf(datum=NA) + 
+  theme_bw()
+
+gr3 <- ggplot(group_clus) + 
+  geom_sf(aes(fill=health_not_good)) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0, limits=c(-1.8,1.8)) + 
+  labs(title = "health_not_good",
+       fill = "mean county effect") + 
+  coord_sf(datum=NA) + 
+  theme_bw()
+
+gr4 <- ggplot(group_clus) + 
+  geom_sf(aes(fill=white)) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0, limits=c(-1.8,1.8)) + 
+  labs(title = "white",
+       fill = "mean county effect") + 
+  coord_sf(datum=NA) + 
+  theme_bw()
+
+gr5 <- ggplot(group_clus) + 
+  geom_sf(aes(fill=younger_adults)) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0, limits=c(-1.8,1.8)) + 
+  labs(title = "younger_adults",
+       fill = "mean county effect") + 
+  coord_sf(datum=NA) + 
+  theme_bw()
+
+ggarrange(gr1, gr2, gr3, gr4, gr5, nrow = 1, common.legend = TRUE, legend = "bottom")
+
+```
+
+
+```{r, fig.width=12, fig.height=10}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+col1 <- ggplot() + 
+  geom_sf(data=df_clus, aes(fill=clus), linewidth=0.1, colour="gray10") + 
+  scale_fill_brewer(palette = "Set3", direction = -1) +
+  geom_sf(data=regions, aes(fill=NA), linewidth=0.5) + 
+  geom_sf_label(data=df_clus, aes(label=county), size=2) + 
+  labs(fill = "pseudo-region") + 
+  theme_bw() + 
+  theme(axis.title.x = element_blank()) + 
+  theme(axis.title.y = element_blank()) + 
+  theme(legend.position = "bottom")
+
+col2 <- ggarrange(gr1, gr2, gr3, gr4, gr5, ncol = 1, common.legend = TRUE, legend = "top")
+
+col3 <- ggarrange(col1,col2, widths = c(3,1))
+
+col3
+
+```
+
+### Upper quintile of swing
+
+```{r, fig.width=12, fig.height=4}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+ordered_swing <- county_swing |> 
+  arrange(desc(mean_con_swing))
+
+gr1_uq <- ggplot() + 
+  geom_sf(data=group_clus, aes(fill=intercept)) + 
+  geom_sf(data=ordered_swing[1:11,], fill=NA, colour="gray0", linewidth=0.75) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0, limits=c(-1.8,1.8)) + 
+  labs(title = "intercept",
+       subtitle = "mean county effect", 
+       fill = "upper quintile county effect") + 
+  coord_sf(datum=NA) + 
+  theme_bw()
+
+gr2_uq <- ggplot() + 
+  geom_sf(data=group_clus, aes(fill=degree_educated)) + 
+  geom_sf(data=ordered_swing[1:11,], fill=NA, colour="gray0", linewidth=0.75) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0, limits=c(-1.8,1.8)) + 
+  labs(title = "degree_educated",
+       subtitle = "mean county effect", 
+       fill = "upper quintile county effect") + 
+  coord_sf(datum=NA) + 
+  theme_bw()
+
+gr3_uq <- ggplot() + 
+  geom_sf(data=group_clus, aes(fill=health_not_good)) + 
+  geom_sf(data=ordered_swing[1:11,], fill=NA, colour="gray0", linewidth=0.75) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0, limits=c(-1.8,1.8)) + 
+  labs(title = "health_not_good",
+       subtitle = "mean county effect", 
+       fill = "upper quintile county effect") + 
+  coord_sf(datum=NA) + 
+  theme_bw()
+
+gr4_uq <- ggplot() + 
+  geom_sf(data=group_clus, aes(fill=white)) + 
+  geom_sf(data=ordered_swing[1:11,], fill=NA, colour="gray0", linewidth=0.75) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0, limits=c(-1.8,1.8)) + 
+  labs(title = "white",
+       subtitle = "mean county effect", 
+       fill = "upper quintile county effect") + 
+  coord_sf(datum=NA) + 
+  theme_bw()
+
+gr5_uq <- ggplot() + 
+  geom_sf(data=group_clus, aes(fill=younger_adults)) + 
+  geom_sf(data=ordered_swing[1:11,], fill=NA, colour="gray0", linewidth=0.75) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0, limits=c(-1.8,1.8)) + 
+  labs(title = "younger_adults",
+       subtitle = "mean county effect", 
+       fill = "upper quintile county effect") + 
+  coord_sf(datum=NA) + 
+  theme_bw()
+
+ggarrange(gr1_uq, gr2_uq, gr3_uq, gr4_uq, gr5_uq, nrow = 1, common.legend = TRUE, legend = "bottom")
+
+```
 
 
 
+### Lower quintile of swing
 
+```{r, fig.width=12, fig.height=4}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
 
+ordered_swing <- county_swing |> 
+  arrange(desc(mean_con_swing))
+
+gr1_lq <- ggplot() + 
+  geom_sf(data=group_clus, aes(fill=intercept)) + 
+  geom_sf(data=ordered_swing[42:52,], fill=NA, colour="gray0", linewidth=0.5) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0, limits=c(-1.8,1.8)) + 
+  labs(title = "intercept",
+       fill = "lower quintile mean county effect") + 
+  coord_sf(datum=NA) + 
+  theme_bw()
+
+gr2_lq <- ggplot() + 
+  geom_sf(data=group_clus, aes(fill=degree_educated)) + 
+  geom_sf(data=ordered_swing[42:52,], fill=NA, colour="gray0", linewidth=0.5) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0, limits=c(-1.8,1.8)) + 
+  labs(title = "degree_educated",
+       fill = "lower quintile mean county effect") + 
+  coord_sf(datum=NA) + 
+  theme_bw()
+
+gr3_lq <- ggplot() + 
+  geom_sf(data=group_clus, aes(fill=health_not_good)) + 
+  geom_sf(data=ordered_swing[42:52,], fill=NA, colour="gray0", linewidth=0.5) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0, limits=c(-1.8,1.8)) + 
+  labs(title = "health_not_good",
+       fill = "lower quintile mean county effect") + 
+  coord_sf(datum=NA) + 
+  theme_bw()
+
+gr4_lq <- ggplot() + 
+  geom_sf(data=group_clus, aes(fill=white)) + 
+  geom_sf(data=ordered_swing[42:52,], fill=NA, colour="gray0", linewidth=0.5) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0, limits=c(-1.8,1.8)) + 
+  labs(title = "white",
+       fill = "lower quintile mean county effect") + 
+  coord_sf(datum=NA) + 
+  theme_bw()
+
+gr5_lq <- ggplot() + 
+  geom_sf(data=group_clus, aes(fill=younger_adults)) + 
+  geom_sf(data=ordered_swing[42:52,], fill=NA, colour="gray0", linewidth=0.5) + 
+  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0, limits=c(-1.8,1.8)) + 
+  labs(title = "younger_adults",
+       fill = "lower quintile mean county effect") + 
+  coord_sf(datum=NA) + 
+  theme_bw()
+
+ggarrange(gr1_lq, gr2_lq, gr3_lq, gr4_lq, gr5_lq, nrow = 1, common.legend = TRUE, legend = "bottom")
+
+```
 
 
 
