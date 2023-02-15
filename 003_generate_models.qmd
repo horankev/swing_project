@@ -58,6 +58,7 @@ packages <- c(
   "broom",
   "patchwork",
   "nlme",
+  "PieGlyph",
   "paletteer", # easy access to many palettes (eg >10 discrete colours...)
   "broom.mixed", # extract tidy output
   "merTools", # with plot functions
@@ -2861,7 +2862,48 @@ ggarrange(p_fixed_gam_v2,dorl_mod_mixed_gam_v2_p2, ncol = 2, widths = c(1,1.3))
 ```
 
 
+## Pie Glyphs
 
+```{r, fig.width=8, fig.height=8}
+#| code-fold: false
+#| message: false
+#| warning: false
+#| echo: false
+
+temp_pie_region <- df |> group_by(region) |> 
+  summarise(con_19=sum(con_vote_19, na.rm = TRUE),
+            lab_19=sum(lab_vote_19, na.rm = TRUE),
+            ld_19=sum(ld_vote_19, na.rm = TRUE),
+            lab_17=sum(lab_vote_17, na.rm = TRUE),
+            pc_19=sum(pc_vote_19, na.rm = TRUE),
+            con_17=sum(con_vote_17, na.rm = TRUE),
+            con_swing=sum(con_swing)) |> 
+  mutate(con_change = con_19-con_17)
+
+temp_pie_region1 <- temp_pie_region |> 
+  mutate(lab_up = ifelse(con_change <0, abs(con_change), NA),
+         con_up = ifelse(con_change >0, con_change, NA))
+
+temp_pie_region2<-st_coordinates(st_centroid(temp_pie_region1))
+temp_pie_region3<-cbind(temp_pie_region1,temp_pie_region2)
+
+region_pieglyph <- ggplot() + 
+  geom_sf(data=regions, fill="gray99", colour="black", linewidth=1) + 
+  geom_sf(data=temp_pie_region3,fill=NA) + 
+  geom_pie_glyph(data=temp_pie_region3,aes(x=X,y=Y),slices=c("con_17","con_up","lab_up","lab_19","ld_19","pc_19"),
+                 radius=1.1,colour="black") +
+  scale_fill_manual(values = c("#A1B1F9","darkblue","darkred","#F9A1A4","yellow","darkgreen")) + 
+  geom_sf_label_repel(data=temp_pie_region3,aes(label=region),size=2.8, alpha=0.8) + 
+  coord_sf(datum=NA) + 
+  labs(fill = "Voteshare",
+       title = "Regions") + 
+  theme_bw() + 
+  theme(axis.title.x = element_blank()) + 
+  theme(axis.title.y = element_blank())
+
+region_pieglyph
+
+```
 
 
 
