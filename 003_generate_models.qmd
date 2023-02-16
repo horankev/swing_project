@@ -2906,4 +2906,30 @@ region_pieglyph
 ```
 
 
+## Arrows swing plot
+
+```{r, fig.width=12, fig.height=12}
+
+centroids <- df |> st_centroid() |> st_coordinates() |> data.frame()
+df_arrows <- df |> 
+  cbind(centroids) |> 
+  mutate(direction = case_when(con_swing > 0 ~ "to Conservative",
+                               TRUE ~ "to Labour"))
+ggplot() + 
+  geom_segment(data=df_arrows, 
+               aes(x=X,
+                   y=Y, 
+                   xend = X + 2700*(con_swing*0.8), 
+                   yend = Y + 2700*(abs(con_swing)*0.8), 
+                   colour=direction,
+                   size=direction), 
+               lineend = "round", linejoin = "round",
+               arrow = arrow(length = unit(0.15,"cm"))) + 
+  geom_sf(data=df, fill=NA) + 
+  scale_colour_manual(values = c("blue","red")) + 
+  scale_size_manual(values =c(0.5,0.5)) +
+  theme_bw()
+
+
+```
 
