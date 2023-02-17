@@ -2933,3 +2933,25 @@ ggplot() +
 
 ```
 
+## Swing and flips
+
+```{r, fig.width=12, fig.height=4}
+
+df$outcome19 <- case_when(df$winner_19 == "Labour" ~ "Labour hold",
+                          df$winner_19 == "Conservative" ~ "Conservative hold",
+                          TRUE ~ "Other")
+df$outcome192 <- case_when(df$winner_19 == "Conservative" & df$winner_17 == "Labour" ~ "Conservative flip",
+                          TRUE ~ df$outcome19)
+ggplot(df) + 
+  geom_histogram(aes(x=con_swing,fill=outcome192), binwidth = 0.25) + 
+  scale_fill_manual(values = c("orange","darkblue","darkred","grey")) + 
+  labs(fill = "Seat status") + 
+  geom_vline(xintercept = 0) + 
+  geom_vline(xintercept = 10, colour="darkgreen") + 
+  geom_vline(xintercept = mean(df$con_swing), linetype="dashed", colour="pink") + 
+  #facet_wrap(~region, nrow = 2) + 
+  theme_bw()
+
+```
+
+
