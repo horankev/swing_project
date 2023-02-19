@@ -255,6 +255,72 @@ fix_nested <- fixef(mod_nested) |>
 
 
 
+### Random effect lines: region
+
+```{r, fig.width=12, fig.height=3}
+
+
+region_random_slope <- function(x) {
+  ggplot() + 
+    geom_abline(data=ran_reg,aes(intercept=`(Intercept)`,slope={{x}}, colour=region), linewidth=1) + 
+    scale_colour_brewer(palette = "Paired") + 
+    geom_hline(yintercept = 0, colour="black", linewidth=2) + 
+    geom_vline(xintercept = 0, colour="black", linewidth=2) + 
+    scale_x_continuous(expand = c(0, 0), limits=c(0,8)) + 
+    scale_y_continuous(expand = c(0, 0), limits=c(-4,4)) +
+    labs(x=deparse(substitute(x)),
+         y="intercept",
+         title="Region level",
+         subtitle="random effects") +
+    theme_bw()
+}
+
+ggarrange(
+  region_random_slope(degree_educated),
+  region_random_slope(younger_adults),
+  region_random_slope(health_not_good),
+  region_random_slope(white),
+  nrow = 1,
+  ncol = 4,
+  common.legend = TRUE, 
+  legend = "right"
+)
+  
+
+```
+
+
+### Random effect lines: county within region
+
+```{r, fig.width=12, fig.height=6}
+
+
+county_random_slope <- function(x) {
+  ran_regcounty <- ran_regcounty |> 
+    mutate(posneg = ifelse({{x}}>0, "pos","neg"))
+  ggplot(ran_regcounty) + 
+    geom_abline(aes(intercept=`(Intercept)`,slope={{x}}, colour=posneg), linewidth=1) + 
+    scale_colour_manual(values = c("darkred","darkblue")) + 
+    geom_hline(yintercept = 0, colour="black", linewidth=2) + 
+    geom_vline(xintercept = 0, colour="black", linewidth=2) + 
+    scale_x_continuous(expand = c(0, 0), limits=c(0,8)) + 
+    scale_y_continuous(expand = c(0, 0), limits=c(-4,4)) +
+   labs(x=deparse(substitute(x)),
+         y="intercept",
+         title="Within region, county level random effects") +
+    theme_bw() + 
+    facet_wrap(~region)
+}
+
+county_random_slope(degree_educated)
+county_random_slope(younger_adults)
+county_random_slope(health_not_good)
+county_random_slope(white)
+
+
+  
+
+```
 
 #### Region random effects
 
@@ -556,6 +622,74 @@ fix_nested_corexp <- fixef(mod_nested_corexp) |>
 ```
 
 
+
+### Random effect lines: region
+
+```{r, fig.width=12, fig.height=3}
+
+
+region_random_slope <- function(x) {
+  ggplot() + 
+    geom_abline(data=ran_reg_corexp,aes(intercept=`(Intercept)`,slope={{x}}, colour=region), linewidth=1) + 
+    scale_colour_brewer(palette = "Paired") + 
+    geom_hline(yintercept = 0, colour="black", linewidth=2) + 
+    geom_vline(xintercept = 0, colour="black", linewidth=2) + 
+    scale_x_continuous(expand = c(0, 0), limits=c(0,8)) + 
+    scale_y_continuous(expand = c(0, 0), limits=c(-4,4)) +
+    labs(x=deparse(substitute(x)),
+         y="intercept",
+         title="Region level",
+         subtitle="random effects") +
+    theme_bw()
+}
+
+ggarrange(
+  region_random_slope(degree_educated),
+  region_random_slope(younger_adults),
+  region_random_slope(health_not_good),
+  region_random_slope(white),
+  nrow = 1,
+  ncol = 4,
+  common.legend = TRUE, 
+  legend = "right"
+)
+  
+
+```
+
+
+### Random effect lines: county within region
+
+```{r, fig.width=12, fig.height=6}
+
+
+county_random_slope <- function(x) {
+  ran_regcounty_corexp <- ran_regcounty_corexp |> 
+    mutate(posneg = ifelse({{x}}>0, "pos","neg"))
+  ggplot(ran_regcounty_corexp) + 
+    geom_abline(aes(intercept=`(Intercept)`,slope={{x}}, colour=posneg), linewidth=1) + 
+    scale_colour_manual(values = c("darkred","darkblue")) + 
+    geom_hline(yintercept = 0, colour="black", linewidth=2) + 
+    geom_vline(xintercept = 0, colour="black", linewidth=2) + 
+    scale_x_continuous(expand = c(0, 0), limits=c(0,8)) + 
+    scale_y_continuous(expand = c(0, 0), limits=c(-4,4)) +
+   labs(x=deparse(substitute(x)),
+         y="intercept",
+         title="Within region, county level random effects") +
+    theme_bw() + 
+    facet_wrap(~region)
+}
+
+county_random_slope(degree_educated)
+county_random_slope(younger_adults)
+county_random_slope(health_not_good)
+county_random_slope(white)
+
+
+  
+
+```
+
 #### Region random effects
 
 ```{r, fig.width=10, fig.height=8}
@@ -825,6 +959,11 @@ lrtest(mod_nested,mod_nested_corexp)
 
 
 
+
+
+
+
+
 ## Nested model 3:  using clusters
 
 ```{r}
@@ -892,6 +1031,76 @@ fix_nested <- fixef(mod_nested) |>
   rename(variable = rowname)
 
 ```
+
+
+
+### Random effect lines: region
+
+```{r, fig.width=12, fig.height=3}
+
+
+cluster_random_slope <- function(x) {
+  ggplot() + 
+    geom_abline(data=ran_reg,aes(intercept=`(Intercept)`,slope={{x}}, colour=clus), linewidth=1) + 
+    scale_colour_brewer(palette = "Paired") + 
+    geom_hline(yintercept = 0, colour="black", linewidth=2) + 
+    geom_vline(xintercept = 0, colour="black", linewidth=2) + 
+    scale_x_continuous(expand = c(0, 0), limits=c(0,8)) + 
+    scale_y_continuous(expand = c(0, 0), limits=c(-4,4)) +
+    labs(x=deparse(substitute(x)),
+         y="intercept",
+         title="Cluster level",
+         subtitle="random effects") +
+    theme_bw()
+}
+
+ggarrange(
+  cluster_random_slope(degree_educated),
+  cluster_random_slope(younger_adults),
+  cluster_random_slope(health_not_good),
+  cluster_random_slope(white),
+  nrow = 1,
+  ncol = 4,
+  common.legend = TRUE, 
+  legend = "right"
+)
+  
+
+```
+
+
+### Random effect lines: county within region
+
+```{r, fig.width=12, fig.height=6}
+
+
+county_random_slope <- function(x) {
+  ran_regcounty <- ran_regcounty |> 
+    mutate(posneg = ifelse({{x}}>0, "pos","neg"))
+  ggplot(ran_regcounty) + 
+    geom_abline(aes(intercept=`(Intercept)`,slope={{x}}, colour=posneg), linewidth=1) + 
+    scale_colour_manual(values = c("darkred","darkblue")) + 
+    geom_hline(yintercept = 0, colour="black", linewidth=2) + 
+    geom_vline(xintercept = 0, colour="black", linewidth=2) + 
+    scale_x_continuous(expand = c(0, 0), limits=c(0,8)) + 
+    scale_y_continuous(expand = c(0, 0), limits=c(-4,4)) +
+   labs(x=deparse(substitute(x)),
+         y="intercept",
+         title="Within cluster, county level random effects") +
+    theme_bw() + 
+    facet_wrap(~clus)
+}
+
+county_random_slope(degree_educated)
+county_random_slope(younger_adults)
+county_random_slope(health_not_good)
+county_random_slope(white)
+
+
+  
+
+```
+
 
 #### Region random effects
 
@@ -1173,6 +1382,76 @@ fix_nested_corexp <- fixef(mod_nested_corexp) |>
   rename(variable = rowname)
 
 ```
+
+
+
+### Random effect lines: region
+
+```{r, fig.width=12, fig.height=3}
+
+
+cluster_random_slope <- function(x) {
+  ggplot() + 
+    geom_abline(data=ran_reg_corexp,aes(intercept=`(Intercept)`,slope={{x}}, colour=clus), linewidth=1) + 
+    scale_colour_brewer(palette = "Paired") + 
+    geom_hline(yintercept = 0, colour="black", linewidth=2) + 
+    geom_vline(xintercept = 0, colour="black", linewidth=2) + 
+    scale_x_continuous(expand = c(0, 0), limits=c(0,8)) + 
+    scale_y_continuous(expand = c(0, 0), limits=c(-4,4)) +
+    labs(x=deparse(substitute(x)),
+         y="intercept",
+         title="Cluster level",
+         subtitle="random effects") +
+    theme_bw()
+}
+
+ggarrange(
+  cluster_random_slope(degree_educated),
+  cluster_random_slope(younger_adults),
+  cluster_random_slope(health_not_good),
+  cluster_random_slope(white),
+  nrow = 1,
+  ncol = 4,
+  common.legend = TRUE, 
+  legend = "right"
+)
+  
+
+```
+
+
+### Random effect lines: county within region
+
+```{r, fig.width=12, fig.height=6}
+
+
+county_random_slope <- function(x) {
+  ran_cluscounty_corexp <- ran_cluscounty_corexp |> 
+    mutate(posneg = ifelse({{x}}>0, "pos","neg"))
+  ggplot(ran_cluscounty_corexp) + 
+    geom_abline(aes(intercept=`(Intercept)`,slope={{x}}, colour=posneg), linewidth=1) + 
+    scale_colour_manual(values = c("darkred","darkblue")) + 
+    geom_hline(yintercept = 0, colour="black", linewidth=2) + 
+    geom_vline(xintercept = 0, colour="black", linewidth=2) + 
+    scale_x_continuous(expand = c(0, 0), limits=c(0,8)) + 
+    scale_y_continuous(expand = c(0, 0), limits=c(-4,4)) +
+   labs(x=deparse(substitute(x)),
+         y="intercept",
+         title="Within cluster, county level random effects") +
+    theme_bw() + 
+    facet_wrap(~clus)
+}
+
+county_random_slope(degree_educated)
+county_random_slope(younger_adults)
+county_random_slope(health_not_good)
+county_random_slope(white)
+
+
+  
+
+```
+
 
 #### Region random effects
 
