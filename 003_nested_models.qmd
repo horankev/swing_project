@@ -1159,7 +1159,7 @@ print(VarCorr(mod_nested_corexp), comp="Variance", digits=3)
 rrr<-ranef(mod_nested_corexp)
 rrr$clus |> data.frame()
 
-ran_regcounty_corexp <- ranef(mod_nested_corexp)$county |> 
+ran_cluscounty_corexp <- ranef(mod_nested_corexp)$county |> 
   rownames_to_column() |> 
   separate(rowname, c("clus","county"),"/")
 
@@ -1178,40 +1178,40 @@ fix_nested_corexp <- fixef(mod_nested_corexp) |>
 
 ```{r, fig.width=18, fig.height=8}
 
-ran_reg_sf <- ran_reg |> 
+ran_reg_corexp_sf <- ran_reg_corexp |> 
   left_join(clusters, by="clus") |> 
   rename(intercept = `(Intercept)`) |> 
   st_as_sf()
 
-pre1r <- ggplot(ran_reg_sf) + 
+pre1r <- ggplot(ran_reg_corexp_sf) + 
   geom_sf(aes(fill=intercept)) +
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
   labs(subtitle = "intercept") + 
   theme_bw() + 
   theme(legend.position = "bottom")
 
-pre2r <- ggplot(ran_reg_sf) + 
+pre2r <- ggplot(ran_reg_corexp_sf) + 
   geom_sf(aes(fill=degree_educated)) +
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
   labs(subtitle = "degree_educated") + 
   theme_bw() + 
   theme(legend.position = "bottom")
 
-pre3r <- ggplot(ran_reg_sf) + 
+pre3r <- ggplot(ran_reg_corexp_sf) + 
   geom_sf(aes(fill=younger_adults)) +
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
   labs(subtitle = "younger_adults") + 
   theme_bw() + 
   theme(legend.position = "bottom")
 
-pre4r <- ggplot(ran_reg_sf) + 
+pre4r <- ggplot(ran_reg_corexp_sf) + 
   geom_sf(aes(fill=health_not_good)) +
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
   labs(subtitle = "health_not_good") + 
   theme_bw() + 
   theme(legend.position = "bottom")
 
-pre5r <- ggplot(ran_reg_sf) + 
+pre5r <- ggplot(ran_reg_corexp_sf) + 
   geom_sf(aes(fill=white)) +
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
   labs(subtitle = "white") + 
@@ -1220,9 +1220,9 @@ pre5r <- ggplot(ran_reg_sf) +
 
 pre_squarer <- ggarrange(pre2r,pre3r,pre4r,pre5r,nrow = 2, ncol = 2)
 
-fixed_lmer <- ggarrange(pre1r,pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
+fixed_corexp <- ggarrange(pre1r,pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
 
-fixed_lmer
+fixed_corexp
 
 ```
 
@@ -1231,8 +1231,8 @@ fixed_lmer
 ```{r, fig.width=10, fig.height=8}
 
 # marge the two tables of random eff levels into one df
-re_df <- ran_regcounty |> 
-  left_join(ran_reg,
+re_df <- ran_cluscounty_corexp |> 
+  left_join(ran_reg_corexp,
             by = "clus") 
 re_df$intercept <- re_df[,3]+re_df[,8]
 re_df$degree_educated <- re_df[,4]+re_df[,9]
@@ -1286,9 +1286,9 @@ pre5 <- ggplot() +
 
 pre_square <- ggarrange(pre2,pre3,pre4,pre5,nrow = 2, ncol = 2)
 
-random_lmer <- ggarrange(pre1,pre_square,nrow = 1, ncol = 2, widths = c(1,1.3))
+random_corexp <- ggarrange(pre1,pre_square,nrow = 1, ncol = 2, widths = c(1,1.3))
 
-random_lmer
+random_corexp
 
 ```
 
@@ -1350,12 +1350,41 @@ tot5 <- ggplot() +
 
 tot_square <- ggarrange(tot2,tot3,tot4,tot5,nrow = 2, ncol = 2)
 
-tot_lmer <- ggarrange(tot1,tot_square,nrow = 1, ncol = 2, widths = c(1,1.3))
+tot_corexp <- ggarrange(tot1,tot_square,nrow = 1, ncol = 2, widths = c(1,1.3))
 
-tot_lmer
+tot_corexp
 
 ```
 
+
+### 2 models fix eff side by side
+
+```{r, fig.width=10, fig.height=8}
+
+fixed_lmer
+fixed_corexp
+
+```
+
+
+### 2 models rand eff side by side
+
+```{r, fig.width=10, fig.height=8}
+
+random_lmer
+random_corexp
+
+```
+
+
+### 2 models total eff side by side
+
+```{r, fig.width=10, fig.height=8}
+
+tot_lmer
+tot_corexp
+
+```
 
 
 #### LRT
