@@ -254,6 +254,17 @@ fix_nested <- fixef(mod_nested) |>
 ```
 
 
+### Dot plots
+
+```{r, fig.width=12, fig.height=12}
+
+library(lattice)
+
+randoms <- ranef(mod_nested)
+dotplot(randoms)
+
+```
+
 
 ### Random effect lines: region
 
@@ -266,7 +277,7 @@ region_random_slope <- function(x) {
     scale_colour_brewer(palette = "Paired") + 
     geom_hline(yintercept = 0, colour="black", linewidth=2) + 
     geom_vline(xintercept = 0, colour="black", linewidth=2) + 
-    scale_x_continuous(expand = c(0, 0), limits=c(0,8)) + 
+    scale_x_continuous(expand = c(0, 0), limits=c(0,4)) + 
     scale_y_continuous(expand = c(0, 0), limits=c(-4,4)) +
     labs(x=deparse(substitute(x)),
          y="intercept",
@@ -303,7 +314,7 @@ county_random_slope <- function(x) {
     scale_colour_manual(values = c("darkred","darkblue")) + 
     geom_hline(yintercept = 0, colour="black", linewidth=2) + 
     geom_vline(xintercept = 0, colour="black", linewidth=2) + 
-    scale_x_continuous(expand = c(0, 0), limits=c(0,8)) + 
+    scale_x_continuous(expand = c(0, 0), limits=c(0,4)) + 
     scale_y_continuous(expand = c(0, 0), limits=c(-4,4)) +
    labs(x=deparse(substitute(x)),
          y="intercept",
@@ -331,46 +342,26 @@ ran_reg_sf <- ran_reg |>
   rename(intercept = `(Intercept)`) |> 
   st_as_sf()
 
-pre1r <- ggplot(ran_reg_sf) + 
-  geom_sf(aes(fill=intercept)) +
+region_random_map <- function(x) {
+  ggplot(ran_reg_sf) + 
+  geom_sf(aes(fill={{x}})) +
+  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "intercept") + 
+  labs(subtitle = deparse(substitute(x))) + 
   theme_bw() + 
   theme(legend.position = "bottom")
+}
 
-pre2r <- ggplot(ran_reg_sf) + 
-  geom_sf(aes(fill=degree_educated)) +
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "degree_educated") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+pre_squarer <- ggarrange(region_random_map(degree_educated),
+                         region_random_map(younger_adults),
+                         region_random_map(health_not_good),
+                         region_random_map(white),
+                         nrow = 2, ncol = 2)
 
-pre3r <- ggplot(ran_reg_sf) + 
-  geom_sf(aes(fill=younger_adults)) +
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "younger_adults") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+random_lmer <- ggarrange(region_random_map(intercept),
+                        pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
 
-pre4r <- ggplot(ran_reg_sf) + 
-  geom_sf(aes(fill=health_not_good)) +
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "health_not_good") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-pre5r <- ggplot(ran_reg_sf) + 
-  geom_sf(aes(fill=white)) +
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "white") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-pre_squarer <- ggarrange(pre2r,pre3r,pre4r,pre5r,nrow = 2, ncol = 2)
-
-fixed_lmer <- ggarrange(pre1r,pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
-
-fixed_lmer
+random_lmer
 
 ```
 
@@ -392,51 +383,26 @@ re_df1 <- re_df |>
   left_join(counties, by="county") |> 
   st_as_sf()
 
-pre1 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=intercept)) + 
+regpluscounty_random_map <- function(x) {
+  ggplot() + 
+  geom_sf(data=re_df1, aes(fill={{x}})) + 
   geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "intercept") + 
+  labs(subtitle = deparse(substitute(x))) + 
   theme_bw() + 
   theme(legend.position = "bottom")
+}
 
-pre2 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=degree_educated)) +
-  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "degree_educated") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+pre_squarer <- ggarrange(regpluscounty_random_map(degree_educated),
+                         regpluscounty_random_map(younger_adults),
+                         regpluscounty_random_map(health_not_good),
+                         regpluscounty_random_map(white),
+                         nrow = 2, ncol = 2)
 
-pre3 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=younger_adults)) +
-  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "younger_adults") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+regpluscounty_lmer <- ggarrange(regpluscounty_random_map(intercept),
+                        pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
 
-pre4 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=health_not_good)) +
-  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "health_not_good") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-pre5 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=white)) +
-  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "white") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-pre_square <- ggarrange(pre2,pre3,pre4,pre5,nrow = 2, ncol = 2)
-
-random_lmer <- ggarrange(pre1,pre_square,nrow = 1, ncol = 2, widths = c(1,1.3))
-
-random_lmer
+regpluscounty_lmer
 
 ```
 
@@ -450,55 +416,30 @@ tot_eff <- re_df1 |>
          f_younger_adults = rep(fix_nested[3,2], nrow(re_df1)),
          f_health_not_good = rep(fix_nested[4,2], nrow(re_df1)),
          f_white = rep(fix_nested[5,2], nrow(re_df1)),
-         tot_intercept = intercept+f_intercept,
-         tot_degree_educated = degree_educated+f_degree_educated,
-         tot_younger_adults = younger_adults+f_younger_adults,
-         tot_health_not_good = health_not_good+f_health_not_good,
-         tot_white = white+f_white)
+         intercept = intercept+f_intercept,
+         degree_educated = degree_educated+f_degree_educated,
+         younger_adults = younger_adults+f_younger_adults,
+         health_not_good = health_not_good+f_health_not_good,
+         white = white+f_white)
 
-tot1 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_intercept)) + 
+totaleffect_map <- function(x) {
+  ggplot() + 
+  geom_sf(data=tot_eff, aes(fill={{x}})) + 
   geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "intercept") + 
+  labs(subtitle = deparse(substitute(x))) + 
   theme_bw() + 
   theme(legend.position = "bottom")
+}
 
-tot2 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_degree_educated)) +
-  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "degree_educated") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+pre_squarer <- ggarrange(totaleffect_map(degree_educated),
+                         totaleffect_map(younger_adults),
+                         totaleffect_map(health_not_good),
+                         totaleffect_map(white),
+                         nrow = 2, ncol = 2)
 
-tot3 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_younger_adults)) +
-  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "younger_adults") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-tot4 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_health_not_good)) +
-  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "health_not_good") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-tot5 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_white)) +
-  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "white") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-tot_square <- ggarrange(tot2,tot3,tot4,tot5,nrow = 2, ncol = 2)
-
-tot_lmer <- ggarrange(tot1,tot_square,nrow = 1, ncol = 2, widths = c(1,1.3))
+tot_lmer <- ggarrange(totaleffect_map(intercept),
+                        pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
 
 tot_lmer
 
@@ -571,6 +512,9 @@ kbl(bt, caption="ICC") |>
 ```
 
 
+
+
+
 ### Nested model 2: NLME corexp
 
 ```{r}
@@ -634,7 +578,7 @@ region_random_slope <- function(x) {
     scale_colour_brewer(palette = "Paired") + 
     geom_hline(yintercept = 0, colour="black", linewidth=2) + 
     geom_vline(xintercept = 0, colour="black", linewidth=2) + 
-    scale_x_continuous(expand = c(0, 0), limits=c(0,8)) + 
+    scale_x_continuous(expand = c(0, 0), limits=c(0,4)) + 
     scale_y_continuous(expand = c(0, 0), limits=c(-4,4)) +
     labs(x=deparse(substitute(x)),
          y="intercept",
@@ -671,7 +615,7 @@ county_random_slope <- function(x) {
     scale_colour_manual(values = c("darkred","darkblue")) + 
     geom_hline(yintercept = 0, colour="black", linewidth=2) + 
     geom_vline(xintercept = 0, colour="black", linewidth=2) + 
-    scale_x_continuous(expand = c(0, 0), limits=c(0,8)) + 
+    scale_x_continuous(expand = c(0, 0), limits=c(0,4)) + 
     scale_y_continuous(expand = c(0, 0), limits=c(-4,4)) +
    labs(x=deparse(substitute(x)),
          y="intercept",
@@ -699,46 +643,27 @@ ran_reg_corexp_sf <- ran_reg_corexp |>
   rename(intercept = `(Intercept)`) |> 
   st_as_sf()
 
-pre1r <- ggplot(ran_reg_corexp_sf) + 
-  geom_sf(aes(fill=intercept)) +
+region_random_map <- function(x) {
+  ggplot(ran_reg_corexp_sf) + 
+  geom_sf(aes(fill={{x}})) +
+  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "intercept") + 
+  labs(subtitle = deparse(substitute(x))) + 
   theme_bw() + 
   theme(legend.position = "bottom")
+}
 
-pre2r <- ggplot(ran_reg_corexp_sf) + 
-  geom_sf(aes(fill=degree_educated)) +
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "degree_educated") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+pre_squarer <- ggarrange(region_random_map(degree_educated),
+                         region_random_map(younger_adults),
+                         region_random_map(health_not_good),
+                         region_random_map(white),
+                         nrow = 2, ncol = 2)
 
-pre3r <- ggplot(ran_reg_corexp_sf) + 
-  geom_sf(aes(fill=younger_adults)) +
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "younger_adults") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+random_corexp <- ggarrange(region_random_map(intercept),
+                        pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
 
-pre4r <- ggplot(ran_reg_corexp_sf) + 
-  geom_sf(aes(fill=health_not_good)) +
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "health_not_good") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+random_corexp
 
-pre5r <- ggplot(ran_reg_corexp_sf) + 
-  geom_sf(aes(fill=white)) +
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "white") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-pre_squarer_corex <- ggarrange(pre2r,pre3r,pre4r,pre5r,nrow = 2, ncol = 2)
-
-fixed_corexp <- ggarrange(pre1r,pre_squarer_corex,nrow = 1, ncol = 2, widths = c(1,1.3))
-
-fixed_corexp
 
 ```
 
@@ -761,51 +686,26 @@ re_df1 <- re_df |>
   left_join(counties, by="county") |> 
   st_as_sf()
 
-pre1 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=intercept)) + 
+regpluscounty_random_map <- function(x) {
+  ggplot() + 
+  geom_sf(data=re_df1, aes(fill={{x}})) + 
   geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "intercept") + 
+  labs(subtitle = deparse(substitute(x))) + 
   theme_bw() + 
   theme(legend.position = "bottom")
+}
 
-pre2 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=degree_educated)) +
-  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "degree_educated") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+pre_squarer <- ggarrange(regpluscounty_random_map(degree_educated),
+                         regpluscounty_random_map(younger_adults),
+                         regpluscounty_random_map(health_not_good),
+                         regpluscounty_random_map(white),
+                         nrow = 2, ncol = 2)
 
-pre3 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=younger_adults)) +
-  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "younger_adults") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+regpluscounty_corexp <- ggarrange(regpluscounty_random_map(intercept),
+                        pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
 
-pre4 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=health_not_good)) +
-  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "health_not_good") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-pre5 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=white)) +
-  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "white") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-pre_square_corexp <- ggarrange(pre2,pre3,pre4,pre5,nrow = 2, ncol = 2)
-
-random_corexp <- ggarrange(pre1,pre_square_corexp,nrow = 1, ncol = 2, widths = c(1,1.3))
-
-random_corexp
+regpluscounty_corexp
 
 ```
 
@@ -814,60 +714,35 @@ random_corexp
 ```{r, fig.width=10, fig.height=8}
 
 tot_eff <- re_df1 |> 
-  mutate(f_intercept = rep(fix_nested_corexp[1,2], nrow(re_df1)),
-         f_degree_educated = rep(fix_nested_corexp[2,2], nrow(re_df1)),
-         f_younger_adults = rep(fix_nested_corexp[3,2], nrow(re_df1)),
-         f_health_not_good = rep(fix_nested_corexp[4,2], nrow(re_df1)),
-         f_white = rep(fix_nested_corexp[5,2], nrow(re_df1)),
-         tot_intercept = intercept+f_intercept,
-         tot_degree_educated = degree_educated+f_degree_educated,
-         tot_younger_adults = younger_adults+f_younger_adults,
-         tot_health_not_good = health_not_good+f_health_not_good,
-         tot_white = white+f_white)
+  mutate(f_intercept = rep(fix_nested[1,2], nrow(re_df1)),
+         f_degree_educated = rep(fix_nested[2,2], nrow(re_df1)),
+         f_younger_adults = rep(fix_nested[3,2], nrow(re_df1)),
+         f_health_not_good = rep(fix_nested[4,2], nrow(re_df1)),
+         f_white = rep(fix_nested[5,2], nrow(re_df1)),
+         intercept = intercept+f_intercept,
+         degree_educated = degree_educated+f_degree_educated,
+         younger_adults = younger_adults+f_younger_adults,
+         health_not_good = health_not_good+f_health_not_good,
+         white = white+f_white)
 
-tot1 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_intercept)) + 
+totaleffect_map <- function(x) {
+  ggplot() + 
+  geom_sf(data=tot_eff, aes(fill={{x}})) + 
   geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "intercept") + 
+  labs(subtitle = deparse(substitute(x))) + 
   theme_bw() + 
   theme(legend.position = "bottom")
+}
 
-tot2 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_degree_educated)) +
-  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "degree_educated") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+pre_squarer <- ggarrange(totaleffect_map(degree_educated),
+                         totaleffect_map(younger_adults),
+                         totaleffect_map(health_not_good),
+                         totaleffect_map(white),
+                         nrow = 2, ncol = 2)
 
-tot3 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_younger_adults)) +
-  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "younger_adults") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-tot4 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_health_not_good)) +
-  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "health_not_good") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-tot5 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_white)) +
-  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "white") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-tot_square <- ggarrange(tot2,tot3,tot4,tot5,nrow = 2, ncol = 2)
-
-tot_corexp <- ggarrange(tot1,tot_square,nrow = 1, ncol = 2, widths = c(1,1.3))
+tot_corexp <- ggarrange(totaleffect_map(intercept),
+                        pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
 
 tot_corexp
 
@@ -921,16 +796,7 @@ ggplot(mp, aes(x=x, y=wx)) + geom_point(shape=1) +
 
 
 
-### 2 models fix eff side by side
-
-```{r, fig.width=10, fig.height=8}
-
-fixed_lmer
-fixed_corexp
-
-```
-
-### 2 models rand eff side by side
+### 2 models region random side by side
 
 ```{r, fig.width=10, fig.height=8}
 
@@ -939,8 +805,17 @@ random_corexp
 
 ```
 
+### 2 models region plus county rand eff side by side
 
-### 2 models total eff side by side
+```{r, fig.width=10, fig.height=8}
+
+regpluscounty_lmer
+regpluscounty_corexp
+
+```
+
+
+### 2 models total eff side by side: random + fixed
 
 ```{r, fig.width=10, fig.height=8}
 
@@ -1045,7 +920,7 @@ cluster_random_slope <- function(x) {
     scale_colour_brewer(palette = "Paired") + 
     geom_hline(yintercept = 0, colour="black", linewidth=2) + 
     geom_vline(xintercept = 0, colour="black", linewidth=2) + 
-    scale_x_continuous(expand = c(0, 0), limits=c(0,8)) + 
+    scale_x_continuous(expand = c(0, 0), limits=c(0,4)) + 
     scale_y_continuous(expand = c(0, 0), limits=c(-4,4)) +
     labs(x=deparse(substitute(x)),
          y="intercept",
@@ -1082,7 +957,7 @@ county_random_slope <- function(x) {
     scale_colour_manual(values = c("darkred","darkblue")) + 
     geom_hline(yintercept = 0, colour="black", linewidth=2) + 
     geom_vline(xintercept = 0, colour="black", linewidth=2) + 
-    scale_x_continuous(expand = c(0, 0), limits=c(0,8)) + 
+    scale_x_continuous(expand = c(0, 0), limits=c(0,4)) + 
     scale_y_continuous(expand = c(0, 0), limits=c(-4,4)) +
    labs(x=deparse(substitute(x)),
          y="intercept",
@@ -1111,46 +986,26 @@ ran_reg_sf <- ran_reg |>
   rename(intercept = `(Intercept)`) |> 
   st_as_sf()
 
-pre1r <- ggplot(ran_reg_sf) + 
-  geom_sf(aes(fill=intercept)) +
+cluster_random_map <- function(x) {
+  ggplot(ran_reg_sf) + 
+  geom_sf(aes(fill={{x}})) +
+  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "intercept") + 
+  labs(subtitle = deparse(substitute(x))) + 
   theme_bw() + 
   theme(legend.position = "bottom")
+}
 
-pre2r <- ggplot(ran_reg_sf) + 
-  geom_sf(aes(fill=degree_educated)) +
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "degree_educated") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+pre_squarer <- ggarrange(cluster_random_map(degree_educated),
+                         cluster_random_map(younger_adults),
+                         cluster_random_map(health_not_good),
+                         cluster_random_map(white),
+                         nrow = 2, ncol = 2)
 
-pre3r <- ggplot(ran_reg_sf) + 
-  geom_sf(aes(fill=younger_adults)) +
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "younger_adults") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+random_lmer <- ggarrange(cluster_random_map(intercept),
+                        pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
 
-pre4r <- ggplot(ran_reg_sf) + 
-  geom_sf(aes(fill=health_not_good)) +
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "health_not_good") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-pre5r <- ggplot(ran_reg_sf) + 
-  geom_sf(aes(fill=white)) +
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "white") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-pre_squarer <- ggarrange(pre2r,pre3r,pre4r,pre5r,nrow = 2, ncol = 2)
-
-fixed_lmer <- ggarrange(pre1r,pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
-
-fixed_lmer
+random_lmer
 
 ```
 
@@ -1172,51 +1027,26 @@ re_df1 <- re_df |>
   left_join(counties, by="county") |> 
   st_as_sf()
 
-pre1 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=intercept)) + 
+regpluscounty_random_map <- function(x) {
+  ggplot() + 
+  geom_sf(data=re_df1, aes(fill={{x}})) + 
   geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "intercept") + 
+  labs(subtitle = deparse(substitute(x))) + 
   theme_bw() + 
   theme(legend.position = "bottom")
+}
 
-pre2 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=degree_educated)) +
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "degree_educated") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+pre_squarer <- ggarrange(regpluscounty_random_map(degree_educated),
+                         regpluscounty_random_map(younger_adults),
+                         regpluscounty_random_map(health_not_good),
+                         regpluscounty_random_map(white),
+                         nrow = 2, ncol = 2)
 
-pre3 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=younger_adults)) +
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "younger_adults") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+regpluscounty_lmer <- ggarrange(regpluscounty_random_map(intercept),
+                        pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
 
-pre4 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=health_not_good)) +
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "health_not_good") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-pre5 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=white)) +
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "white") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-pre_square <- ggarrange(pre2,pre3,pre4,pre5,nrow = 2, ncol = 2)
-
-random_lmer <- ggarrange(pre1,pre_square,nrow = 1, ncol = 2, widths = c(1,1.3))
-
-random_lmer
+regpluscounty_lmer
 
 ```
 
@@ -1230,55 +1060,30 @@ tot_eff <- re_df1 |>
          f_younger_adults = rep(fix_nested[3,2], nrow(re_df1)),
          f_health_not_good = rep(fix_nested[4,2], nrow(re_df1)),
          f_white = rep(fix_nested[5,2], nrow(re_df1)),
-         tot_intercept = intercept+f_intercept,
-         tot_degree_educated = degree_educated+f_degree_educated,
-         tot_younger_adults = younger_adults+f_younger_adults,
-         tot_health_not_good = health_not_good+f_health_not_good,
-         tot_white = white+f_white)
+         intercept = intercept+f_intercept,
+         degree_educated = degree_educated+f_degree_educated,
+         younger_adults = younger_adults+f_younger_adults,
+         health_not_good = health_not_good+f_health_not_good,
+         white = white+f_white)
 
-tot1 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_intercept)) + 
+totaleffect_map <- function(x) {
+  ggplot() + 
+  geom_sf(data=tot_eff, aes(fill={{x}})) + 
   geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "intercept") + 
+  labs(subtitle = deparse(substitute(x))) + 
   theme_bw() + 
   theme(legend.position = "bottom")
+}
 
-tot2 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_degree_educated)) +
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "degree_educated") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+pre_squarer <- ggarrange(totaleffect_map(degree_educated),
+                         totaleffect_map(younger_adults),
+                         totaleffect_map(health_not_good),
+                         totaleffect_map(white),
+                         nrow = 2, ncol = 2)
 
-tot3 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_younger_adults)) +
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "younger_adults") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-tot4 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_health_not_good)) +
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "health_not_good") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-tot5 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_white)) +
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "white") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-tot_square <- ggarrange(tot2,tot3,tot4,tot5,nrow = 2, ncol = 2)
-
-tot_lmer <- ggarrange(tot1,tot_square,nrow = 1, ncol = 2, widths = c(1,1.3))
+tot_lmer <- ggarrange(totaleffect_map(intercept),
+                        pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
 
 tot_lmer
 
@@ -1303,6 +1108,7 @@ kbl(bt, caption="ICC") |>
   column_spec(5, background = "#F5E4E6")
 
 ```
+
 
 ## Nested model 4:  using clusters corexp
 
@@ -1396,7 +1202,7 @@ cluster_random_slope <- function(x) {
     scale_colour_brewer(palette = "Paired") + 
     geom_hline(yintercept = 0, colour="black", linewidth=2) + 
     geom_vline(xintercept = 0, colour="black", linewidth=2) + 
-    scale_x_continuous(expand = c(0, 0), limits=c(0,8)) + 
+    scale_x_continuous(expand = c(0, 0), limits=c(0,4)) + 
     scale_y_continuous(expand = c(0, 0), limits=c(-4,4)) +
     labs(x=deparse(substitute(x)),
          y="intercept",
@@ -1433,7 +1239,7 @@ county_random_slope <- function(x) {
     scale_colour_manual(values = c("darkred","darkblue")) + 
     geom_hline(yintercept = 0, colour="black", linewidth=2) + 
     geom_vline(xintercept = 0, colour="black", linewidth=2) + 
-    scale_x_continuous(expand = c(0, 0), limits=c(0,8)) + 
+    scale_x_continuous(expand = c(0, 0), limits=c(0,4)) + 
     scale_y_continuous(expand = c(0, 0), limits=c(-4,4)) +
    labs(x=deparse(substitute(x)),
          y="intercept",
@@ -1462,46 +1268,27 @@ ran_reg_corexp_sf <- ran_reg_corexp |>
   rename(intercept = `(Intercept)`) |> 
   st_as_sf()
 
-pre1r <- ggplot(ran_reg_corexp_sf) + 
-  geom_sf(aes(fill=intercept)) +
+region_random_map <- function(x) {
+  ggplot(ran_reg_corexp_sf) + 
+  geom_sf(aes(fill={{x}})) +
+  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "intercept") + 
+  labs(subtitle = deparse(substitute(x))) + 
   theme_bw() + 
   theme(legend.position = "bottom")
+}
 
-pre2r <- ggplot(ran_reg_corexp_sf) + 
-  geom_sf(aes(fill=degree_educated)) +
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "degree_educated") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+pre_squarer <- ggarrange(region_random_map(degree_educated),
+                         region_random_map(younger_adults),
+                         region_random_map(health_not_good),
+                         region_random_map(white),
+                         nrow = 2, ncol = 2)
 
-pre3r <- ggplot(ran_reg_corexp_sf) + 
-  geom_sf(aes(fill=younger_adults)) +
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "younger_adults") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+random_corexp <- ggarrange(region_random_map(intercept),
+                        pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
 
-pre4r <- ggplot(ran_reg_corexp_sf) + 
-  geom_sf(aes(fill=health_not_good)) +
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "health_not_good") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+random_corexp
 
-pre5r <- ggplot(ran_reg_corexp_sf) + 
-  geom_sf(aes(fill=white)) +
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "white") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-pre_squarer <- ggarrange(pre2r,pre3r,pre4r,pre5r,nrow = 2, ncol = 2)
-
-fixed_corexp <- ggarrange(pre1r,pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
-
-fixed_corexp
 
 ```
 
@@ -1523,51 +1310,26 @@ re_df1 <- re_df |>
   left_join(counties, by="county") |> 
   st_as_sf()
 
-pre1 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=intercept)) + 
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
+regpluscounty_random_map <- function(x) {
+  ggplot() + 
+  geom_sf(data=re_df1, aes(fill={{x}})) + 
+  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "intercept") + 
+  labs(subtitle = deparse(substitute(x))) + 
   theme_bw() + 
   theme(legend.position = "bottom")
+}
 
-pre2 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=degree_educated)) +
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "degree_educated") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+pre_squarer <- ggarrange(regpluscounty_random_map(degree_educated),
+                         regpluscounty_random_map(younger_adults),
+                         regpluscounty_random_map(health_not_good),
+                         regpluscounty_random_map(white),
+                         nrow = 2, ncol = 2)
 
-pre3 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=younger_adults)) +
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "younger_adults") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+regpluscounty_corexp <- ggarrange(regpluscounty_random_map(intercept),
+                        pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
 
-pre4 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=health_not_good)) +
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "health_not_good") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-pre5 <- ggplot() + 
-  geom_sf(data=re_df1, aes(fill=white)) +
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "white") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-pre_square <- ggarrange(pre2,pre3,pre4,pre5,nrow = 2, ncol = 2)
-
-random_corexp <- ggarrange(pre1,pre_square,nrow = 1, ncol = 2, widths = c(1,1.3))
-
-random_corexp
+regpluscounty_corexp
 
 ```
 
@@ -1581,72 +1343,38 @@ tot_eff <- re_df1 |>
          f_younger_adults = rep(fix_nested[3,2], nrow(re_df1)),
          f_health_not_good = rep(fix_nested[4,2], nrow(re_df1)),
          f_white = rep(fix_nested[5,2], nrow(re_df1)),
-         tot_intercept = intercept+f_intercept,
-         tot_degree_educated = degree_educated+f_degree_educated,
-         tot_younger_adults = younger_adults+f_younger_adults,
-         tot_health_not_good = health_not_good+f_health_not_good,
-         tot_white = white+f_white)
+         intercept = intercept+f_intercept,
+         degree_educated = degree_educated+f_degree_educated,
+         younger_adults = younger_adults+f_younger_adults,
+         health_not_good = health_not_good+f_health_not_good,
+         white = white+f_white)
 
-tot1 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_intercept)) + 
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
+totaleffect_map <- function(x) {
+  ggplot() + 
+  geom_sf(data=tot_eff, aes(fill={{x}})) + 
+  geom_sf(data=regions, fill=NA, linewidth=0.5, colour="black") + 
   scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "intercept") + 
+  labs(subtitle = deparse(substitute(x))) + 
   theme_bw() + 
   theme(legend.position = "bottom")
+}
 
-tot2 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_degree_educated)) +
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "degree_educated") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
+pre_squarer <- ggarrange(totaleffect_map(degree_educated),
+                         totaleffect_map(younger_adults),
+                         totaleffect_map(health_not_good),
+                         totaleffect_map(white),
+                         nrow = 2, ncol = 2)
 
-tot3 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_younger_adults)) +
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "younger_adults") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-tot4 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_health_not_good)) +
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "health_not_good") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-tot5 <- ggplot() + 
-  geom_sf(data=tot_eff, aes(fill=tot_white)) +
-  geom_sf(data=clusters, fill=NA, linewidth=0.5, colour="black") + 
-  scale_fill_gradient2(low="darkred",mid="white",high="darkblue",midpoint = 0) + 
-  labs(subtitle = "white") + 
-  theme_bw() + 
-  theme(legend.position = "bottom")
-
-tot_square <- ggarrange(tot2,tot3,tot4,tot5,nrow = 2, ncol = 2)
-
-tot_corexp <- ggarrange(tot1,tot_square,nrow = 1, ncol = 2, widths = c(1,1.3))
+tot_corexp <- ggarrange(totaleffect_map(intercept),
+                        pre_squarer,nrow = 1, ncol = 2, widths = c(1,1.3))
 
 tot_corexp
 
-```
-
-
-### 2 models fix eff side by side
-
-```{r, fig.width=10, fig.height=8}
-
-fixed_lmer
-fixed_corexp
 
 ```
 
 
-### 2 models rand eff side by side
+### 2 models region random side by side
 
 ```{r, fig.width=10, fig.height=8}
 
@@ -1656,7 +1384,17 @@ random_corexp
 ```
 
 
-### 2 models total eff side by side
+### 2 models region plus county rand eff side by side
+
+```{r, fig.width=10, fig.height=8}
+
+regpluscounty_lmer
+regpluscounty_corexp
+
+```
+
+
+### 2 models total eff side by side: random + fixed
 
 ```{r, fig.width=10, fig.height=8}
 
@@ -1673,7 +1411,6 @@ tot_corexp
 lrtest(mod_nested,mod_nested_corexp)
 
 ```
-
 
 
 
