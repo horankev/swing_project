@@ -1967,7 +1967,7 @@ df.mst <- mstree(df.w)
 # plot(dat,border=gray(.5),add=TRUE)
 
 # skater function for contiguity-constrained cluster
-total_clusters <- 10
+total_clusters <- 11
 tc <- total_clusters-1
 
 clusts <- spdep::skater(df.mst[,1:2],sdat,tc,crit = 1)
