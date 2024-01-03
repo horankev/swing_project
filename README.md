@@ -29,5 +29,3 @@ with voting behaviour in the 2019 UK general election. It finds evidence
 of the presence of both types of spatial effects, and describes how they
 suggest different associations between census profile and voting
 behaviour in different parts of England and Wales.*
-
-Code to follow
