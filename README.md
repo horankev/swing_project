@@ -6,28 +6,25 @@
 <!-- badges: start -->
 <!-- badges: end -->
 
-The goal of swing_project is to …
+This repository contains the code used to produce the results discussed
+in the paper “*A multilevel spatial model to investigate voting
+behaviour in the 2019 UK general election*”. The following is the
+abstract for the paper:
 
-What is special about using `README.Rmd` instead of just `README.md`?
-You can include R chunks like so:
-
-``` r
-summary(cars)
-#>      speed           dist       
-#>  Min.   : 4.0   Min.   :  2.00  
-#>  1st Qu.:12.0   1st Qu.: 26.00  
-#>  Median :15.0   Median : 36.00  
-#>  Mean   :15.4   Mean   : 42.98  
-#>  3rd Qu.:19.0   3rd Qu.: 56.00  
-#>  Max.   :25.0   Max.   :120.00
-```
-
-You’ll still need to render `README.Rmd` regularly, to keep `README.md`
-up-to-date.
-
-You can also embed plots, for example:
-
-![](README_files/figure-gfm/pressure-1.png)<!-- -->
-
-In that case, don’t forget to commit and push the resulting figure
-files, so they display on GitHub.
+This paper presents a modelling framework which can detect the
+simultaneous presence of two different types of spatial process. The
+first is the variation from a global mean resulting from a geographical
+unit’s ‘*vertical*’ position within a nested hierarchical structure such
+as the county and region where it is situated. The second is the
+variation at the smaller scale of individual units due to the
+‘*horizontal*’ influence of nearby locations. The former is captured
+using a multi-level modelling structure while the latter is accounted
+for by an autoregressive component at the lowest level of the hierarchy.
+Such a model not only estimates spatially-varying parameters according
+to geographical scale, but also the relative contribution of each
+process to the overall spatial variation. As a demonstration, the study
+considers the association of a selection of socio-economic attributes
+with voting behaviour in the 2019 UK general election. It finds evidence
+of the presence of both types of spatial effects, and describes how they
+suggest different associations between census profile and voting
+behaviour in different parts of England and Wales.
