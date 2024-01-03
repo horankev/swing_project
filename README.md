@@ -1,18 +1,16 @@
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
-# swing_project
+# A multilevel spatial model to investigate voting behaviour in the 2019 UK general election
 
 <!-- badges: start -->
 <!-- badges: end -->
 
-This repository contains the code used to produce the results discussed
-in the paper:
+This repository contains the code used to produce the findings discussed
+in this paper. The full paper is to appear in [Applied Spatial Analysis
+and Policy](https://link.springer.com/journal/12061).
 
-**A multilevel spatial model to investigate voting behaviour in the 2019
-UK general election**.
-
-The following is the abstract for the paper:
+## Abstract
 
 *This paper presents a modelling framework which can detect the
 simultaneous presence of two different types of spatial process. The
