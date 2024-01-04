@@ -1,8 +1,9 @@
+
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
 # A multilevel spatial model to investigate voting behaviour in the 2019 UK general election
 
-Kevin Horan<sup>1\*</sup> Chris Brunsdon<sup>2</sup> and Katarina
+Kevin Horan<sup>1\*</sup>, Chris Brunsdon<sup>2</sup> and Katarina
 Domijan<sup>3</sup>
 
 <sup>1</sup> Hamilton Institute, Maynooth University, Maynooth,
@@ -11,7 +12,7 @@ Ireland.
 Ireland.  
 <sup>3</sup> Department of Mathematics and Statistics, Maynooth
 University, Maynooth, Ireland.  
-<sup>\*</sup> contact author: <a.comber@leeds.ac.uk>
+<sup>\*</sup> contact author: <kevin.horan.2021@mumail.ie>
 <!-- badges: start -->
 
 <!-- badges: end -->
