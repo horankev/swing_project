@@ -1,4 +1,3 @@
-
 <!-- README.md is generated from README.Rmd. Please edit that file -->
 
 # A multilevel spatial model to investigate voting behaviour in the 2019 UK general election
@@ -54,7 +53,7 @@ maintaining constituency contiguities.
 Right: Guide map of the regions of England and Wales under a similar
 projection.
 
-<img src="README_files/figure-gfm/unnamed-chunk-8-1.png" style="display: block; margin: auto;" />
+<img src="README_files/figure-markdown_github/unnamed-chunk-8-1.png" style="display: block; margin: auto;" />
 
 ### Swingometers
 
@@ -63,7 +62,7 @@ relative to circle such that the maximum swing is 90 degrees from the
 vertical. In this regional map, the North East swing of 8.36% is the
 maximum.
 
-![](README_files/figure-gfm/unnamed-chunk-11-1.png)<!-- -->
+![](README_files/figure-markdown_github/unnamed-chunk-11-1.png)
 
 ### Contiguities
 
@@ -74,12 +73,12 @@ First order queen contiguity structure of constituencies in England and
 Wales, shown as edges radiating from nodes at the centroid of
 constituencies.
 
-<img src="README_files/figure-gfm/unnamed-chunk-13-1.png" style="display: block; margin: auto;" />
+<img src="README_files/figure-markdown_github/unnamed-chunk-13-1.png" style="display: block; margin: auto;" />
 
 ### Explanatory variables
 
 | Explanatory variable | Calculation from census                                                         | Justification/theory                                |
-|----------------------|---------------------------------------------------------------------------------|-----------------------------------------------------|
+|-----------|-------------------------------------|-------------------------|
 | degree educated      | percentage of population with level 4 qualification or higher                   | post-industrial / knowledge-economy / peripherality |
 | health not good      | percentage of the population self-reporting ‘poor’, ‘bad’, or ‘very bad’ health | life outcomes / young people                        |
 | white                | percentage of population of white ethnicity                                     | ethnic / cultural diversity / values                |
@@ -90,7 +89,7 @@ Values of independent variables mapped across England and Wales. Figures
 projected as Dougenik cartograms such that equal populations occupy
 equal area while maintaining constituency contiguities.
 
-<img src="README_files/figure-gfm/unnamed-chunk-17-1.png" style="display: block; margin: auto;" />
+<img src="README_files/figure-markdown_github/unnamed-chunk-17-1.png" style="display: block; margin: auto;" />
 
 ## Modelling
 
@@ -103,7 +102,7 @@ East show a block of red alongside a block of blue, while a blue pattern
 of underprediction spreads across the boundary between the East Midlands
 and Yorkshire and the Humber.
 
-<img src="README_files/figure-gfm/unnamed-chunk-20-1.png" style="display: block; margin: auto;" />
+<img src="README_files/figure-markdown_github/unnamed-chunk-20-1.png" style="display: block; margin: auto;" />
 
 ### Model variations
 
@@ -142,7 +141,7 @@ particular dataset. Such a process can be used to find the most suitable
 structure for any potential dataset.
 
 | Model | Autoregressive spatial process(es)            | AIC  | RMSE | adjR2 | Loglik |
-|-------|-----------------------------------------------|------|------|-------|--------|
+|-------|---------------------------------------|------|------|-------|--------|
 | 1     | constituency component                        | 2336 | 1.43 | 0.76  | -1015  |
 | 2     | varying coefficients                          | 2373 | 1.62 | 0.73  | -1086  |
 | 3     | constituency component + varying coefficients | 2381 | 1.64 | 0.73  | -1094  |
@@ -153,35 +152,39 @@ The structure of the model is outlined below:
 
 $$
 \begin{aligned}
-y_{ijk} &=  \beta_0 + \beta_1 degree_{ijk} + \beta_2 health_{ijk} + \beta_3white_{ijk}\\
-&+ b_{0i} + b_{1i} degree_{ijk} + b_{2i} health_{ijk} + b_{3i}white_{ijk}\\
-&+ b_{0ij} + b_{1ij} degree_{ijk} + b_{2ij} health_{ijk} + b_{3ij}white_{ijk}\\
-&+ \gamma_{l}|\gamma_{m}, l\neq{m}\\
-&+ \epsilon_{ijk}
+y\_{ijk} &=  \beta_0 + \beta_1 degree\_{ijk} + \beta_2 health\_{ijk} + \beta_3white\_{ijk}\\
+&+ b\_{0i} + b\_{1i} degree\_{ijk} + b\_{2i} health\_{ijk} + b\_{3i}white\_{ijk}\\
+&+ b\_{0ij} + b\_{1ij} degree\_{ijk} + b\_{2ij} health\_{ijk} + b\_{3ij}white\_{ijk}\\
+&+ \gamma\_{l}\|\gamma\_{m}, l\neq{m}\\
+&+ \epsilon\_{ijk}
 \end{aligned}
 $$
 
-where $y_{ijk}$ is the swing in constituency $k$ in county $j$ in region
-$i$ for
+where *y*<sub>*i**j**k*</sub> is the swing in constituency *k* in county
+*j* in region *i* for
 
-- $i = 1, ... , 11$ regions,
+-   *i* = 1, ..., 11 regions,
 
-- $j = 1,..., J_{i}$ counties within region $i$,
+-   *j* = 1, ..., *J*<sub>*i*</sub> counties within region *i*,
 
-- $k = 1,..., K_{ij}$ constituencies within county $j$ within region
-  $i$, and
+-   *k* = 1, ..., *K*<sub>*i**j*</sub> constituencies within county *j*
+    within region *i*, and
 
-- $l = 1,..., 571$ individual constituencies.
+-   *l* = 1, ..., 571 individual constituencies.
 
-- $\beta_0$, $\beta_1$, $\beta_2$, $\beta_3$ are fixed effects.
+-   *β*<sub>0</sub>, *β*<sub>1</sub>, *β*<sub>2</sub>, *β*<sub>3</sub>
+    are fixed effects.
 
-- $b_{0i}$, $b_{1i}$, $b_{2i}$, $b_{3i}$ are the random effects
-  (intercept and three slopes) associated with region $i$,
+-   *b*<sub>0*i*</sub>, *b*<sub>1*i*</sub>, *b*<sub>2*i*</sub>,
+    *b*<sub>3*i*</sub> are the random effects (intercept and three
+    slopes) associated with region *i*,
 
-- $b_{0ij}$, $b_{1ij}$, $b_{2ij}$, $b_{3ij}$ are the random effects
-  (intercept and three slopes) associated with county $j$ in region $i$.
+-   *b*<sub>0*i**j*</sub>, *b*<sub>1*i**j*</sub>, *b*<sub>2*i**j*</sub>,
+    *b*<sub>3*i**j*</sub> are the random effects (intercept and three
+    slopes) associated with county *j* in region *i*.
 
-- $\epsilon_{ijk}$ are independent normally distributed error terms.
+-   *ϵ*<sub>*i**j**k*</sub> are independent normally distributed error
+    terms.
 
 Rather than estimate each of the random effect coefficients directly,
 the variance of each random effect is instead estimated. For the region
@@ -190,25 +193,26 @@ the others within its level, and to be normally distributed with mean of
 zero. This independence is a key restriction in multi-level modelling
 with `mgcv` as opposed to other packages.
 
-The $\gamma_{l}$’s are constituency level random effects which model the
-spatial interactions at the lowest level of the model, based on an ICAR
-distribution. Let there be $m = 1,..., M$ potential neighbouring
-constituencies, where $M=L=571$. Each $\gamma_{l}$ is conditional on the
-sum of the weighted values of its neighbouring $\gamma_{m}$’s
-($\text{w}_{lm}\gamma_m$) and has unknown variance. As a constituency is
-not a neighbour to itself, the full conditional distribution can be
-written as follows:
-$$\gamma_l | \gamma_m,l\neq{m} \sim\text{N}\bigg(\frac{\sum_{l\neq{m}}{\gamma_l}}{d_l},\frac{\sigma_{l}^2}{d_l}\bigg)$$
-where the term $d_l$ represents the number of neighbours. Thus the mean
-of each $\gamma_l$ is equal to the average of its neighbours, while its
-variance decreases as the number of neighbours increases.
+The *γ*<sub>*l*</sub>’s are constituency level random effects which
+model the spatial interactions at the lowest level of the model, based
+on an ICAR distribution. Let there be *m* = 1, ..., *M* potential
+neighbouring constituencies, where *M* = *L* = 571. Each
+*γ*<sub>*l*</sub> is conditional on the sum of the weighted values of
+its neighbouring *γ*<sub>*m*</sub>’s
+(w<sub>*l**m*</sub>*γ*<sub>*m*</sub>) and has unknown variance. As a
+constituency is not a neighbour to itself, the full conditional
+distribution can be written as follows:
+$$\gamma_l \| \gamma_m,l\neq{m} \sim\text{N}\bigg(\frac{\sum\_{l\neq{m}}{\gamma_l}}{d_l},\frac{\sigma\_{l}^2}{d_l}\bigg)$$
+where the term *d*<sub>*l*</sub> represents the number of neighbours.
+Thus the mean of each *γ*<sub>*l*</sub> is equal to the average of its
+neighbours, while its variance decreases as the number of neighbours
+increases.
 
-The joint specification of the ICAR random vector $\gamma$ when centred
-at $0$ with common variance $1$ rewrites to the pairwise difference
-formulation:
-$$\gamma \propto\text{exp}\bigg(-\frac{1}{2}\Sigma_{l\neq{m}}(\gamma_l-\gamma_m)^2\bigg)$$
+The joint specification of the ICAR random vector *γ* when centred at 0
+with common variance 1 rewrites to the pairwise difference formulation:
+$$\gamma \propto\text{exp}\bigg(-\frac{1}{2}\Sigma\_{l\neq{m}}(\gamma_l-\gamma_m)^2\bigg)$$
 To overcome the problem of unidentifiability, the constraint
-$\Sigma_L\gamma_l=0$ is added to centre the model.
+*Σ*<sub>*L*</sub>*γ*<sub>*l*</sub> = 0 is added to centre the model.
 
 ## Results
 
@@ -230,7 +234,7 @@ The aim of this modelling structure was to enable us
 
 ### Fixed effects
 
-<img src="README_files/figure-gfm/unnamed-chunk-25-1.png" width="100%" />
+<img src="README_files/figure-markdown_github/unnamed-chunk-25-1.png" width="100%" />
 
 ### Region randoms
 
@@ -241,7 +245,7 @@ occur is shown above each map. Unlike ‘health not good’ and ‘white’,
 ‘degree educated’ does not show significant divergence at this level
 from its global coefficient.
 
-<img src="README_files/figure-gfm/unnamed-chunk-28-1.png" style="display: block; margin: auto;" />
+<img src="README_files/figure-markdown_github/unnamed-chunk-28-1.png" style="display: block; margin: auto;" />
 
 ### County randoms
 
@@ -249,13 +253,13 @@ Random effects of ‘degree educated’ variable at the county level of
 England and Wales. Particularly strong within-county variation can be
 observed in the East.
 
-![](README_files/figure-gfm/unnamed-chunk-31-1.png)<!-- -->
+![](README_files/figure-markdown_github/unnamed-chunk-31-1.png)
 
 Random effects of ‘white’ variable at the county level of England and
 Wales. Particularly strong within-county variation can be observed in
 the East Midlands.
 
-![](README_files/figure-gfm/unnamed-chunk-32-1.png)<!-- -->
+![](README_files/figure-markdown_github/unnamed-chunk-32-1.png)
 
 ### Table of variances
 
@@ -270,7 +274,7 @@ albeit to different extents. ‘Health not good’ and ‘white’ show not only
 different magnitudes but also different directions of association with
 swing in different regions and counties across the study area.
 
-<img src="README_files/figure-gfm/unnamed-chunk-34-1.png" width="100%" />
+<img src="README_files/figure-markdown_github/unnamed-chunk-34-1.png" width="100%" />
 
 ### Constituency level
 
@@ -282,7 +286,7 @@ where the tendency is to swing to Labour, controlling for the covariates
 and hierarchical effects. Areas of clear cross-regional spillover of
 effects are highlighted with red circles.
 
-<img src="README_files/figure-gfm/unnamed-chunk-35-1.png" style="display: block; margin: auto;" />
+<img src="README_files/figure-markdown_github/unnamed-chunk-35-1.png" style="display: block; margin: auto;" />
 
 ### Spatial diagnostics of model
 
@@ -294,4 +298,4 @@ lagged neighbours which shows neither a positive nor negative
 association between a constituency’s residuals and those of its
 neighbours.
 
-<img src="README_files/figure-gfm/unnamed-chunk-36-1.png" style="display: block; margin: auto;" />
+<img src="README_files/figure-markdown_github/unnamed-chunk-36-1.png" style="display: block; margin: auto;" />

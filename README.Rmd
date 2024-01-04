@@ -1,5 +1,7 @@
 ---
-output: github_document
+output: 
+ md_document:
+    variant: markdown_github
 ---
 
 <!-- README.md is generated from README.Rmd. Please edit that file -->
@@ -1346,8 +1348,8 @@ ranef_county_degree_plot <- (plot_spacer()|plot_spacer()|p_list[[5]]|plot_spacer
   plot_annotation(
     title = "County (within region)",
     subtitle = TeX(paste0("degree_educated (", "$\\hat{b}_{1ij}$",")")),
-    theme = theme(plot.title = element_text(size = 10),
-                  plot.subtitle = element_text(size = 8))
+    theme = theme(plot.title = element_text(size = 14),
+                  plot.subtitle = element_text(size = 10))
   )
 
 ```
@@ -1403,8 +1405,8 @@ ranef_county_white_plot <- (plot_spacer()|plot_spacer()|p_list[[5]]|plot_spacer(
   plot_annotation(
     title = "County (within region)",
     subtitle = TeX(paste0("white (", "$\\hat{b}_{3ij}$",")")),
-    theme = theme(plot.title = element_text(size = 10),
-                  plot.subtitle = element_text(size = 8))
+    theme = theme(plot.title = element_text(size = 14),
+                  plot.subtitle = element_text(size = 10))
   )
 
 ```
