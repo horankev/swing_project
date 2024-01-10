@@ -676,9 +676,11 @@ k2 <- kbl(var_table2, booktabs = TRUE,
 
 k2
 
+
 #######
 ### Further tables
 #######
+
 
 var_expl <- data.frame(
   `Explanatory variable` = c("degree educated",
@@ -706,13 +708,18 @@ k3
 
 group1
 
+
+
 ###############################################################################
 ##### Modelling
 ###############################################################################
 
+
+
 #######
 ### Simplest model
 #######
+
 
 mod0 <- lm(con_swing ~ 
              degree_educated + 
@@ -749,9 +756,11 @@ p_simp_corr <- ggplot() +
 
 p_simp_corr
 
+
 #######
 ### Model variations
 #######
+
 
 # This section takes a long time to run as it fits many models.
 # It has been commented out to save time running it
@@ -1006,6 +1015,7 @@ p_simp_corr
 ### Optimal model
 #######
 
+
 # mod2 is the optimal model from the above table (labelled as 1 in the table)
 mod2 <- 
   gam(con_swing ~
@@ -1034,6 +1044,7 @@ mod2 <-
 #######
 ### Fixed effects
 #######
+
 
 # extract the fixed effects from the model, and clean them
 mod2_fix <- extract_fixed(mod2, ci_level = 0.95, digits = 3)
@@ -1075,9 +1086,11 @@ ggplot() +
                               TeX(paste0("(degree_educated)    ", "$\\hat{\\beta}_1$")),
                               TeX(paste0("(intercept)    ", "$\\hat{\\beta}_0$"))))
 
+
 #######
 ### Random effects
 #######
+
 
 # for extracting random effects from `mgcv`...
 # set up a temp dataframe featuring all of the variables in the model
@@ -1236,9 +1249,11 @@ m_ran_unique <- m_ran_county |>
   unique() |> 
   arrange(region)
 
+
 ####
 ### County random effects - degree_eduacted
 ####
+
 
 # loop through all of the regions and map their counties
 p_list <- list()
@@ -1295,9 +1310,11 @@ ranef_county_degree_plot <- (plot_spacer()|plot_spacer()|p_list[[5]]|plot_spacer
                   plot.subtitle = element_text(size = 8))
   )
 
+
 ####
 ### County random effects - white
 ####
+
 
 # same process of creating grid of regions as above
 p_list <- list()
