@@ -27,7 +27,7 @@ Kevin Horan<sup>1\*</sup>, Chris Brunsdon<sup>2</sup> and Katarina Domijan<sup>3
 
 <!-- badges: end -->
 
-Full paper published in [Applied Spatial Analysis and Policy](https://link.springer.com/journal/12061) (11 January 2024) with open access available at this [link](The full paper is available here: [Applied Spatial Analysis and Policy](https://doi.org/10.1007/s12061-023-09563-6).).
+Full paper published in [Applied Spatial Analysis and Policy](https://link.springer.com/journal/12061) (11 January 2024) with open access available at this [link](https://doi.org/10.1007/s12061-023-09563-6).
 
 This repository contains the code used to produce the findings discussed in this paper.
 

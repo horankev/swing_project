@@ -19,7 +19,7 @@ University, Maynooth, Ireland.
 Full paper published in [Applied Spatial Analysis and
 Policy](https://link.springer.com/journal/12061) (11 January 2024) with
 open access available at this
-[link](The%20full%20paper%20is%20available%20here:%20%5BApplied%20Spatial%20Analysis%20and%20Policy%5D(https://doi.org/10.1007/s12061-023-09563-6).).
+[link](https://doi.org/10.1007/s12061-023-09563-6).
 
 This repository contains the code used to produce the findings discussed
 in this paper.
