@@ -16,9 +16,13 @@ University, Maynooth, Ireland.
 
 <!-- badges: end -->
 
+Full paper published in [Applied Spatial Analysis and
+Policy](https://link.springer.com/journal/12061) (11 January 2024) with
+open access available at this
+[link](The%20full%20paper%20is%20available%20here:%20%5BApplied%20Spatial%20Analysis%20and%20Policy%5D(https://doi.org/10.1007/s12061-023-09563-6).).
+
 This repository contains the code used to produce the findings discussed
-in this paper. The full paper is to appear in [Applied Spatial Analysis
-and Policy](https://link.springer.com/journal/12061).
+in this paper.
 
 ## Abstract
 
@@ -78,7 +82,7 @@ constituencies.
 ### Explanatory variables
 
 | Explanatory variable | Calculation from census                                                         | Justification/theory                                |
-|-----------|-------------------------------------|-------------------------|
+|-----------------|----------------------------------|----------------------|
 | degree educated      | percentage of population with level 4 qualification or higher                   | post-industrial / knowledge-economy / peripherality |
 | health not good      | percentage of the population self-reporting ‘poor’, ‘bad’, or ‘very bad’ health | life outcomes / young people                        |
 | white                | percentage of population of white ethnicity                                     | ethnic / cultural diversity / values                |
@@ -141,7 +145,7 @@ particular dataset. Such a process can be used to find the most suitable
 structure for any potential dataset.
 
 | Model | Autoregressive spatial process(es)            | AIC  | RMSE | adjR2 | Loglik |
-|-------|---------------------------------------|------|------|-------|--------|
+|---------|----------------------------|---------|---------|---------|---------|
 | 1     | constituency component                        | 2336 | 1.43 | 0.76  | -1015  |
 | 2     | varying coefficients                          | 2373 | 1.62 | 0.73  | -1086  |
 | 3     | constituency component + varying coefficients | 2381 | 1.64 | 0.73  | -1094  |
